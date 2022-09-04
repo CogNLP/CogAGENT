@@ -1,0 +1,5 @@
+transformers==4.16.2
+tqdm==4.63.0
+sklearn==0.0
+tensorboard==2.9.0
+numpy>=1.22.3
