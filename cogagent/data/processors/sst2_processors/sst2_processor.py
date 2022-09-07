@@ -20,9 +20,6 @@ class Sst2Processor(BaseProcessor):
         datable = DataTable()
         print("Processing data...")
         for sentence, label in tqdm(zip(data['sentence'], data['label']), total=len(data['sentence'])):
-            # token = self.tokenizer.encode(text=sentence, truncation=True, padding="max_length", add_special_tokens=True,
-            #                               max_length=self.max_token_len)
-            # datable("input_ids", token)
             tokenized_data = self.tokenizer.encode_plus(text=sentence,
                                                         padding="max_length",
                                                         add_special_tokens=True,
@@ -42,9 +39,7 @@ class Sst2Processor(BaseProcessor):
     def process_test(self, data):
         datable = DataTable()
         print("Processing data...")
-        for sentence in tqdm(zip(data['sentence']), total=len(data['sentence'])):
-            token = self.tokenizer.encode(text=sentence, truncation=True, padding="max_length", add_special_tokens=True,
-                                          max_length=self.max_token_len)
+        for sentence in tqdm(data['sentence'], total=len(data['sentence'])):
             tokenized_data = self.tokenizer.encode_plus(text=sentence,
                                                         padding="max_length",
                                                         add_special_tokens=True,
