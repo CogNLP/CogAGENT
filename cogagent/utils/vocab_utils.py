@@ -1,3 +1,4 @@
+import pickle
 class Vocabulary():
     def __init__(self):
         self.label_set = set()
@@ -61,6 +62,16 @@ class Vocabulary():
     def get_id2label_dict(self):
         return self.id2label_dict
 
+    def save(self,file):
+        data = [self.label_set,self.defined_label2id_dict,self.label2id_dict,self.id2label_dict]
+        with open(file,"wb") as f:
+            pickle.dump(data,f)
+
+    def load(self,file):
+        with open(file,"rb") as f:
+            data = pickle.load(f)
+        self.label_set,self.defined_label2id_dict,self.label2id_dict,self.id2label_dict = data
+
 
 if __name__ == "__main__":
     vocab = Vocabulary()
@@ -72,6 +83,12 @@ if __name__ == "__main__":
     vocab.add_dict({"<pad>": 0})
     vocab.add_dict({"A": 2})
     vocab.create()
+
+    file_name = "vocabulary.pkl"
+    vocab.save(file_name)
+    another_vocab = Vocabulary()
+    another_vocab.load(file_name)
+
     print(vocab.label2id("A"))
     print(vocab.id2label(0))
     print(vocab.labels2ids(["A", "B"]))
