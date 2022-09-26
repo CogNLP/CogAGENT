@@ -3,12 +3,12 @@ import torch.optim as optim
 from cogagent import *
 
 device, output_path = init_cogagent(
-    device_id=7,
-    output_path="/data/mentianyi/code/CogAGENT/datapath/text_classification/SST_2/experimental_result",
+    device_id=2,
+    output_path="/data/hongbang/CogAGENT/datapath/text_classification/SST_2/experimental_result",
     folder_tag="simple_test",
 )
 
-reader = Sst2Reader(raw_data_path="/data/mentianyi/code/CogAGENT/datapath/text_classification/SST_2/raw_data")
+reader = Sst2Reader(raw_data_path="/data/hongbang/CogAGENT/datapath/text_classification/SST_2/raw_data")
 train_data, dev_data, test_data = reader.read_all()
 vocab = reader.read_vocab()
 
@@ -27,7 +27,7 @@ trainer = Trainer(model,
                   train_dataset,
                   dev_data=dev_dataset,
                   n_epochs=20,
-                  batch_size=50,
+                  batch_size=32,
                   loss=loss,
                   optimizer=optimizer,
                   scheduler=None,
@@ -40,6 +40,7 @@ trainer = Trainer(model,
                   print_every=None,
                   scheduler_steps=None,
                   validate_steps=100,
+                  save_by_metric="F1",
                   save_steps=None,
                   output_path=output_path,
                   grad_norm=1,

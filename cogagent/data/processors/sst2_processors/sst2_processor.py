@@ -20,10 +20,11 @@ class Sst2Processor(BaseProcessor):
         datable = DataTable()
         print("Processing data...")
         for sentence, label in tqdm(zip(data['sentence'], data['label']), total=len(data['sentence'])):
-            tokenized_data = self.tokenizer.encode_plus(text=sentence,
-                                                        padding="max_length",
-                                                        add_special_tokens=True,
-                                                        max_length=self.max_token_len)
+            tokenized_data = text_classification_for_sst2(sentence,tokenizer=self.tokenizer,max_token_len=self.max_token_len)
+            # tokenized_data = self.tokenizer.encode_plus(text=sentence,
+            #                                             padding="max_length",
+            #                                             add_special_tokens=True,
+            #                                             max_length=self.max_token_len)
             datable("input_ids", tokenized_data["input_ids"])
             datable("token_type_ids", tokenized_data["token_type_ids"])
             datable("attention_mask", tokenized_data["attention_mask"])
@@ -49,6 +50,12 @@ class Sst2Processor(BaseProcessor):
             datable("attention_mask", tokenized_data["attention_mask"])
         return DataTableSet(datable)
 
+def text_classification_for_sst2(sentence,tokenizer,max_token_len):
+    tokenized_data = tokenizer.encode_plus(text=sentence,
+                                            padding="max_length",
+                                            add_special_tokens=True,
+                                            max_token_len=max_token_len)
+    return tokenized_data.data
 
 if __name__ == "__main__":
     from cogagent.data.readers.sst2_reader import Sst2Reader
