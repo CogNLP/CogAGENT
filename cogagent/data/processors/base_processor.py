@@ -1,6 +1,8 @@
+from ..datable import DataTable
+
 class BaseProcessor:
-    def __init__(self):
-        pass
+    def __init__(self,debug=False):
+        self.debug = debug
 
     def _process(self, data):
         pass
@@ -28,3 +30,11 @@ class BaseProcessor:
 
     def get_addition(self):
         pass
+
+    def debug_process(self, data):
+        if self.debug and len(data) >= 100:
+            debug_data = DataTable()
+            for header in data.headers:
+                debug_data[header] = data[header][:100]
+            return debug_data
+        return data

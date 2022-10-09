@@ -9,8 +9,8 @@ transformers.logging.set_verbosity_error()  # set transformers logging level
 
 
 class Sst2Processor(BaseProcessor):
-    def __init__(self, plm, max_token_len, vocab):
-        super().__init__()
+    def __init__(self, plm, max_token_len, vocab,debug=False):
+        super().__init__(debug)
         self.plm = plm
         self.max_token_len = max_token_len
         self.vocab = vocab
@@ -18,6 +18,7 @@ class Sst2Processor(BaseProcessor):
 
     def _process(self, data):
         datable = DataTable()
+        data = self.debug_process(data)
         print("Processing data...")
         for sentence, label in tqdm(zip(data['sentence'], data['label']), total=len(data['sentence'])):
             tokenized_data = text_classification_for_sst2(sentence,tokenizer=self.tokenizer,max_token_len=self.max_token_len)
