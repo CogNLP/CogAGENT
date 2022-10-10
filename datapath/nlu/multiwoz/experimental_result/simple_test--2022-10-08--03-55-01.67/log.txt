@@ -1,0 +1,5 @@
+[[032m2022-10-08 04:00:43,232[0m INFO] trainer.train Start training
+[[032m2022-10-08 04:00:43,232[0m INFO] trainer.train Epoch size = 20
+[[032m2022-10-08 04:00:43,233[0m INFO] trainer.train Batch size = 100
+[[032m2022-10-08 04:00:43,233[0m INFO] trainer.train Global step = 0
+[[032m2022-10-08 04:00:43,234[0m INFO] trainer.train Train epoch = 0

@@ -1,0 +1,69 @@
+[[032m2022-10-06 05:46:26,123[0m INFO] trainer.train Start training
+[[032m2022-10-06 05:46:26,124[0m INFO] trainer.train Epoch size = 20
+[[032m2022-10-06 05:46:26,124[0m INFO] trainer.train Batch size = 100
+[[032m2022-10-06 05:46:26,124[0m INFO] trainer.train Global step = 0
+[[032m2022-10-06 05:46:26,126[0m INFO] trainer.train Train epoch = 0
+[[032m2022-10-06 06:01:17,746[0m INFO] trainer.train Epoch: [0/20], Step: [1135/1135], Loss: 1.1305580139160156
+[[032m2022-10-06 06:01:17,747[0m INFO] trainer.train Epoch loss = 1320.786521
+[[032m2022-10-06 06:01:17,747[0m INFO] trainer.train Train epoch = 1
+[[032m2022-10-06 06:16:18,246[0m INFO] trainer.train Epoch: [1/20], Step: [1135/1135], Loss: 1.055210828781128
+[[032m2022-10-06 06:16:18,247[0m INFO] trainer.train Epoch loss = 1202.889259
+[[032m2022-10-06 06:16:18,247[0m INFO] trainer.train Train epoch = 2
+[[032m2022-10-06 06:31:15,812[0m INFO] trainer.train Epoch: [2/20], Step: [1135/1135], Loss: 1.0253944396972656
+[[032m2022-10-06 06:31:15,813[0m INFO] trainer.train Epoch loss = 1157.337725
+[[032m2022-10-06 06:31:15,813[0m INFO] trainer.train Train epoch = 3
+[[032m2022-10-06 06:51:16,948[0m INFO] trainer.train Epoch: [3/20], Step: [1135/1135], Loss: 1.0087133646011353
+[[032m2022-10-06 06:51:16,949[0m INFO] trainer.train Epoch loss = 1132.730395
+[[032m2022-10-06 06:51:16,949[0m INFO] trainer.train Train epoch = 4
+[[032m2022-10-06 07:14:31,562[0m INFO] trainer.train Epoch: [4/20], Step: [1135/1135], Loss: 1.0105478763580322
+[[032m2022-10-06 07:14:31,563[0m INFO] trainer.train Epoch loss = 1118.935054
+[[032m2022-10-06 07:14:31,563[0m INFO] trainer.train Train epoch = 5
+[[032m2022-10-06 07:38:12,925[0m INFO] trainer.train Epoch: [5/20], Step: [1135/1135], Loss: 0.9915335774421692
+[[032m2022-10-06 07:38:12,926[0m INFO] trainer.train Epoch loss = 1107.631689
+[[032m2022-10-06 07:38:12,926[0m INFO] trainer.train Train epoch = 6
+[[032m2022-10-06 08:01:32,648[0m INFO] trainer.train Epoch: [6/20], Step: [1135/1135], Loss: 0.9881604909896851
+[[032m2022-10-06 08:01:32,648[0m INFO] trainer.train Epoch loss = 1099.207068
+[[032m2022-10-06 08:01:32,649[0m INFO] trainer.train Train epoch = 7
+[[032m2022-10-06 08:24:45,023[0m INFO] trainer.train Epoch: [7/20], Step: [1135/1135], Loss: 0.9873975515365601
+[[032m2022-10-06 08:24:45,024[0m INFO] trainer.train Epoch loss = 1094.904567
+[[032m2022-10-06 08:24:45,024[0m INFO] trainer.train Train epoch = 8
+[[032m2022-10-06 08:48:25,410[0m INFO] trainer.train Epoch: [8/20], Step: [1135/1135], Loss: 0.9884765148162842
+[[032m2022-10-06 08:48:25,411[0m INFO] trainer.train Epoch loss = 1090.642978
+[[032m2022-10-06 08:48:25,411[0m INFO] trainer.train Train epoch = 9
+[[032m2022-10-06 09:11:49,293[0m INFO] trainer.train Epoch: [9/20], Step: [1135/1135], Loss: 0.9811089634895325
+[[032m2022-10-06 09:11:49,293[0m INFO] trainer.train Epoch loss = 1085.815095
+[[032m2022-10-06 09:11:49,293[0m INFO] trainer.train Train epoch = 10
+[[032m2022-10-06 09:34:01,755[0m INFO] trainer.train Epoch: [10/20], Step: [1135/1135], Loss: 0.9822946190834045
+[[032m2022-10-06 09:34:01,756[0m INFO] trainer.train Epoch loss = 1081.748016
+[[032m2022-10-06 09:34:01,756[0m INFO] trainer.train Train epoch = 11
+[[032m2022-10-06 09:55:30,147[0m INFO] trainer.train Epoch: [11/20], Step: [1135/1135], Loss: 0.9681539535522461
+[[032m2022-10-06 09:55:30,148[0m INFO] trainer.train Epoch loss = 1078.277650
+[[032m2022-10-06 09:55:30,148[0m INFO] trainer.train Train epoch = 12
+[[032m2022-10-06 10:16:58,195[0m INFO] trainer.train Epoch: [12/20], Step: [1135/1135], Loss: 0.9624538421630859
+[[032m2022-10-06 10:16:58,196[0m INFO] trainer.train Epoch loss = 1074.522935
+[[032m2022-10-06 10:16:58,196[0m INFO] trainer.train Train epoch = 13
+[[032m2022-10-06 10:38:24,130[0m INFO] trainer.train Epoch: [13/20], Step: [1135/1135], Loss: 0.956317663192749
+[[032m2022-10-06 10:38:24,131[0m INFO] trainer.train Epoch loss = 1073.830158
+[[032m2022-10-06 10:38:24,131[0m INFO] trainer.train Train epoch = 14
+[[032m2022-10-06 10:59:49,573[0m INFO] trainer.train Epoch: [14/20], Step: [1135/1135], Loss: 0.971877932548523
+[[032m2022-10-06 10:59:49,574[0m INFO] trainer.train Epoch loss = 1071.611176
+[[032m2022-10-06 10:59:49,574[0m INFO] trainer.train Train epoch = 15
+[[032m2022-10-06 11:17:38,965[0m INFO] trainer.train Epoch: [15/20], Step: [1135/1135], Loss: 0.966427206993103
+[[032m2022-10-06 11:17:38,965[0m INFO] trainer.train Epoch loss = 1069.657565
+[[032m2022-10-06 11:17:38,966[0m INFO] trainer.train Train epoch = 16
+[[032m2022-10-06 11:33:04,770[0m INFO] trainer.train Epoch: [16/20], Step: [1135/1135], Loss: 0.9620233178138733
+[[032m2022-10-06 11:33:04,771[0m INFO] trainer.train Epoch loss = 1068.019780
+[[032m2022-10-06 11:33:04,771[0m INFO] trainer.train Train epoch = 17
+[[032m2022-10-06 11:48:02,377[0m INFO] trainer.train Epoch: [17/20], Step: [1135/1135], Loss: 0.9704281091690063
+[[032m2022-10-06 11:48:02,378[0m INFO] trainer.train Epoch loss = 1067.333875
+[[032m2022-10-06 11:48:02,378[0m INFO] trainer.train Train epoch = 18
+[[032m2022-10-06 12:03:00,600[0m INFO] trainer.train Epoch: [18/20], Step: [1135/1135], Loss: 0.9614102840423584
+[[032m2022-10-06 12:03:00,601[0m INFO] trainer.train Epoch loss = 1066.797964
+[[032m2022-10-06 12:03:00,601[0m INFO] trainer.train Train epoch = 19
+[[032m2022-10-06 12:18:00,825[0m INFO] trainer.train Epoch: [19/20], Step: [1135/1135], Loss: 0.9630241990089417
+[[032m2022-10-06 12:18:00,826[0m INFO] trainer.train Epoch loss = 1064.151397
+[[032m2022-10-06 12:18:00,826[0m INFO] trainer.train Train epoch = 20
+[[032m2022-10-06 12:32:58,111[0m INFO] trainer.train Epoch: [20/20], Step: [1135/1135], Loss: 0.9686394333839417
+[[032m2022-10-06 12:32:58,112[0m INFO] trainer.train Epoch loss = 1062.237837
+[[032m2022-10-06 12:32:58,112[0m INFO] trainer.train At global step -1,the best evaluation results are:None
+[[032m2022-10-06 12:32:58,112[0m INFO] trainer.train End training
