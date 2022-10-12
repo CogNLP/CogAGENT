@@ -23,7 +23,7 @@ metric = BaseClassificationMetric(mode="binary")
 loss = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.00001)
 
-# 新加了注释 新加了注释
+# 新加了注释
 trainer = Trainer(model,
                   train_dataset,
                   dev_data=dev_dataset,
