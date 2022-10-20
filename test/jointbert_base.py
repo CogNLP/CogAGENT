@@ -62,9 +62,9 @@ plm = PlmAutoModel(pretrained_model_name="bert-base-uncased")
 processor = MultiwozProcessor(intent_vocab=intent_vocab, tag_vocab=tag_vocab,plm="bert-base-uncased")
 train_dataset = processor.process(train_data, data_key='train', cut_sen_len=config['cut_sen_len'], use_bert_tokenizer=config['use_bert_tokenizer'])
 dev_dataset = processor.process(dev_data, data_key='val', cut_sen_len=config['cut_sen_len'], use_bert_tokenizer=config['use_bert_tokenizer'])
-test_dataset = processor.process(test_data, data_key='test', cut_sen_len=config['cut_sen_len'], use_bert_tokenizer=config['use_bert_tokenizer'])
+# test_dataset = processor.process(test_data, data_key='test', cut_sen_len=config['cut_sen_len'], use_bert_tokenizer=config['use_bert_tokenizer'])
 
-model = JointbertModel(config['model'], config['DEVICE'], processor.tag_dim, processor.intent_dim, processor.intent_weight)
+model = JointbertModel(config['model'], config['DEVICE'], processor, processor.tag_dim, processor.intent_dim, processor.intent_weight)
 
 metric = BaseJointbertMetric(mode="binary")
 

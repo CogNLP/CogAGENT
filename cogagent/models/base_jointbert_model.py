@@ -1,21 +1,27 @@
+from concurrent.futures import process
 from doctest import OutputChecker
 import json
 import os
+import re
 import torch
+import numpy as np
 from torch import nn
 from transformers import BertModel
 from torch.utils.tensorboard import SummaryWriter
 # from torch.nn.parameter import Parameter
 from cogagent.models.base_model import BaseModel
-from cogagent.data.processors.jointbert_processors.postprocess import is_slot_da, calculateF1, recover_intent
+from cogagent.data.processors.jointbert_processors.multiwoz_processor import MultiwozProcessor
 class JointbertModel(BaseModel):
-    def __init__(self, model_config, device, slot_dim, intent_dim, intent_weight=None):
+    def __init__(self, model_config, device, processor, slot_dim, intent_dim, intent_weight=None):
         super(JointbertModel, self).__init__()
         self.slot_num_labels = slot_dim
         self.intent_num_labels = intent_dim
         self.device = device
         self.intent_weight = intent_weight if intent_weight is not None else torch.tensor([1.]*intent_dim)
-
+        self.processor = processor
+        # self.intent_vocab = intent_vocab
+        # self.tag_vocab = tag_vocab
+        # self.id2intent = dict([(i, x) for i, x in enumerate(intent_vocab)])
         print(model_config['pretrained_weights'])
         self.bert = BertModel.from_pretrained(model_config['pretrained_weights'])
         self.dropout = nn.Dropout(model_config['dropout'])
@@ -129,56 +135,37 @@ class JointbertModel(BaseModel):
         return loss
 
 
-    # def evaluate(self, batch, metric_function):
-          
-    #     predict_golden = {'intent': [], 'slot': [], 'overall': []}
-    #     val_slot_loss, val_intent_loss = 0, 0
-    #     for pad_batch, ori_batch, real_batch_size in self.processor.yield_batches(batch_size, data_key='val'):
-    #         word_seq_tensor, tag_seq_tensor, intent_tensor, word_mask_tensor, tag_mask_tensor, context_seq_tensor, context_mask_tensor = pad_batch
-    #         with torch.no_grad():
-    #             slot_logits, intent_logits, slot_loss, intent_loss = self.model.forward(word_seq_tensor,
-    #                                                                                     word_mask_tensor,
-    #                                                                                     tag_seq_tensor,
-    #                                                                                     tag_mask_tensor,
-    #                                                                                     intent_tensor,
-    #                                                                                     context_seq_tensor,
-    #                                                                                     context_mask_tensor)
-    #         val_slot_loss += slot_loss.item() * real_batch_size
-    #         val_intent_loss += intent_loss.item() * real_batch_size
-    #         for j in range(real_batch_size):
-    #             predicts = recover_intent(self.processor, intent_logits[j], slot_logits[j], tag_mask_tensor[j],
-    #                                             ori_batch[j][0], ori_batch[j][-4])
-    #             labels = ori_batch[j][3]
+    def evaluate(self, batch, metric_function):
+        word_seq_tensor = batch['word_seq_tensor']
+        word_mask_tensor = batch['word_mask_tensor']
+        tag_seq_tensor = batch['tag_seq_tensor']
+        tag_mask_tensor = batch['tag_mask_tensor']
+        intent_tensor = batch['intent_tensor']
+        context_seq_tensor = batch['context_seq_tensor']
+        context_mask_tensor = batch['context_mask_tensor']
+        # slot_logits, intent_logits, slot_loss, intent_loss = self.forward(batch)
+        output = ()
+        output = self.forward(word_seq_tensor, word_mask_tensor, tag_seq_tensor, tag_mask_tensor, 
+                                                                            intent_tensor, 
+                                                                            context_seq_tensor, 
+                                                                            context_mask_tensor)
+        slot_logits = output[0]
+        intent_logits = output[1] 
+        pred = []
+        labels = []
+        # l = len(self.processor.data['val'][0][0])
+        l = len(intent_logits)
+        for i in range(l):
+            
+            labels.append(self.processor.data['val'][0][0][i][3])
+            # labels.append((batch['intent_tensor'][i]).cpu().tolist())
+            ori_word_seq = self.processor.data['val'][0][0][i][0]
+            new2ori = self.processor.data['val'][0][0][i][-4]
+            pred.append(self.processor.recover_intent(intent_logits[i], slot_logits[i], tag_mask_tensor[i],ori_word_seq,new2ori))
+        metric_function.evaluate(pred, labels)             
 
-    #             predict_golden['overall'].append({
-    #                         'predict': predicts,
-    #                         'golden': labels
-    #                     })
-    #             predict_golden['slot'].append({
-    #                         'predict': [x for x in predicts if is_slot_da(x)],
-    #                         'golden': [x for x in labels if is_slot_da(x)]
-    #                     })
-    #             predict_golden['intent'].append({
-    #                         'predict': [x for x in predicts if not is_slot_da(x)],
-    #                         'golden': [x for x in labels if not is_slot_da(x)]
-    #                     })
-
-    #             total = len(self.processor.data['val'][0])
-    #             val_slot_loss /= total
-    #             val_intent_loss /= total
-                
-    #             for x in ['intent', 'slot', 'overall']:
-    #                 precision, recall, F1 = calculateF1(predict_golden[x])
-                    
-
-    #             if F1 > best_val_f1:
-    #                 best_val_f1 = F1
-    #                 torch.save(self.model.state_dict(), os.path.join(output_dir, 'pytorch_model.bin'))
-         
-    #     metric_function.evaluate(val_slot_loss, val_intent_loss,precision, recall, F1)
-
-    # def predict(self, batch):
-    #     pred = self.forward(batch)
-    #     pred = F.softmax(pred, dim=1)
-    #     pred = torch.max(pred, dim=1)[1]
+    # def predict(self, batch):                                                              
     #     return pred
+
+
+    

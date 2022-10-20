@@ -1,7 +1,9 @@
 from platform import processor
+import re
 import numpy as np
 import torch
 import random
+from torch.nn.modules.container import T
 from transformers import BertTokenizer
 from transformers import BasicTokenizer
 from transformers import WordpieceTokenizer
@@ -103,7 +105,7 @@ class MultiwozProcessor(BaseProcessor):
         # datable.add_not2torch("new2ori")
         
         # batch_data = random.choices(self.data['train'][0][0], k=100)
-        batch_data = self.data['train'][0][0]
+        batch_data = self.data[data_key][0][0]
         batch_size = len(batch_data)
         max_seq_len = max([len(x[-3]) for x in batch_data]) + 2
         word_mask_tensor = torch.zeros((batch_size, max_seq_len), dtype=torch.long)
@@ -121,15 +123,16 @@ class MultiwozProcessor(BaseProcessor):
             words = ['[CLS]'] + words + ['[SEP]']
             indexed_tokens = self.tokenizer.convert_tokens_to_ids(str(words))
             sen_len = len(words)
-            word_seq_tensor[i, :sen_len] = torch.LongTensor([indexed_tokens])
-            tag_seq_tensor[i, 1:sen_len-1] = torch.LongTensor(tags)
-            word_mask_tensor[i, :sen_len] = torch.LongTensor([1] * sen_len)
-            tag_mask_tensor[i, 1:sen_len-1] = torch.LongTensor([1] * (sen_len-2))
+            word_seq_tensor[i][:sen_len] = torch.LongTensor([indexed_tokens])
+            tag_seq_tensor[i][1:sen_len-1] = torch.LongTensor(tags)
+            word_mask_tensor[i][:sen_len] = torch.LongTensor([1] * sen_len)
+            tag_mask_tensor[i][1:sen_len-1] = torch.LongTensor([1] * (sen_len-2))
             for j in intents:
-                intent_tensor[i, j] = 1.
+                intent_tensor[i][j] = 1.
             context_len = len(batch_data[i][-5])
-            context_seq_tensor[i, :context_len] = torch.LongTensor([batch_data[i][-5]])
-            context_mask_tensor[i, :context_len] = torch.LongTensor([1] * context_len)
+            context_seq_tensor[i][:context_len] = torch.LongTensor([batch_data[i][-5]])
+            context_mask_tensor[i][:context_len] = torch.LongTensor([1] * context_len)
+            
             datable("word_seq_tensor", word_seq_tensor[i])
             datable("word_mask_tensor", word_mask_tensor[i])
             datable("tag_seq_tensor", tag_seq_tensor[i])
@@ -179,32 +182,55 @@ class MultiwozProcessor(BaseProcessor):
     def seq_id2intent(self, ids):
         return [self.id2intent[x] for x in ids]
 
-    # def _process(self, data):
-    #     datable = DataTable()
-        # raw_data_path="/home/nlp/anaconda3/envs/CogAGENT/CogAGENT/datapath/nlu/multiwoz/raw_data"
+    def recover_intent(self, intent_logits, slot_logits,tag_mask_tensor,ori_word_seq, new2ori):
+        # ori_word_seq = self.data['val'][0]
+        # pred_intents = []
+        
+        max_seq_len = slot_logits.size(0)
+        intents = []
+        for j in range(self.intent_dim):
+            if intent_logits[j] > 0:
+                intent, slot, value = re.split('[+*]', self.id2intent[j])
+                # intent = self.intent2id[j]
+                intents.append([intent, slot, value])
+                # intents.append([intent])
 
-        # intent_vocab = json.load(open(os.path.join(raw_data_path, 'intent_vocab.json')))
-        # tag_vocab = json.load(open(os.path.join(raw_data_path, 'tag_vocab.json')))
-        # dataloader = Dataloader(intent_vocab=intent_vocab, tag_vocab=tag_vocab,
-        #                     pretrained_weights="bert-base-uncased")
-        # print('intent num:', len(intent_vocab))
-        # print('tag num:', len(tag_vocab))
-        # # os.path.join()函数用于路径拼接文件路径
-        # # json.load(f)之后，返回的对象是python的字典对象
-        # dataloader.load_data(data, cut_sen_len=40, use_bert_tokenizer=True)
-        # print('{} set size: {}'.format(data, len(dataloader.data)))
+        tags = []
+        for j in range(1, max_seq_len-1):
+            if tag_mask_tensor[j] == 1:
+                value, tag_id = torch.max(slot_logits[j], dim=-1)
+                tags.append(self.id2tag[tag_id.item()])
+        recover_tags = []
+        # for t, tag in enumerate(tags):
+        #     if int(new2ori[t]) >= len(recover_tags):
+        #         recover_tags.append(tag)
+        #     # # tag_intent = tag2triples(ori_word_seq, recover_tags)
+        ori_word_seq = ori_word_seq[:len(recover_tags)]
+        assert len(ori_word_seq)==len(recover_tags)
+        tag_intent = []
+        t = 0
+        while t < len(recover_tags):
+            tag = recover_tags[t]
+            if tag.startswith('B'):
+                intent, slot = tag[2:].split('+')
+                value = ori_word_seq[t]
+                j = t + 1
+                while j < len(recover_tags):
+                    if recover_tags[j].startswith('I') and recover_tags[j][2:] == tag[2:]:
+                        value += ' ' + ori_word_seq[j]
+                        t += 1
+                        j += 1
+                    else:
+                        break
+                tag_intent.append([intent, slot, value])
+                # tag_intent.append([intent])
+            t += 1
+        intents += tag_intent
 
-        # return DataTableSet(datable)
+        # intents.append(intents)
+        return intents
 
-    # def process_train(self, data):
-    #     return self._process(data)
-
-    # def process_dev(self, data):
-    #     return self._process(data)
-
-    # def process_test(self, data):
-    #     return self._process(data)
-
+    
 if __name__ == "__main__":
     
     print("处理数据集完成")

@@ -18,6 +18,7 @@ class JointbertReader(BaseReader):
         self.train_file = 'train_data.json'
         # self.train_file = 'train_data2.json'
         self.dev_file = 'val_data.json'
+        # self.dev_file = 'val_data2.json'
         self.test_file = 'test_data.json'
         self.train_path = os.path.join(raw_data_path, self.train_file)
         self.dev_path = os.path.join(raw_data_path, self.dev_file)
