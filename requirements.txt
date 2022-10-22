@@ -4,3 +4,4 @@ sklearn==0.0
 tensorboard==2.9.0
 numpy>=1.22.3
 prettytable>=3.0.0
+nltk
