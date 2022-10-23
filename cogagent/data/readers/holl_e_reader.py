@@ -49,7 +49,7 @@ class HollEReader(BaseReader):
 
             knows = []
             for single_know in dialog['know']:
-                single_know = [each.split()[:] for each in single_know]
+                single_know = [[]]+[each.split()[:] for each in single_know]
                 for each in single_know:
                     self.raw_vocab_list.extend(each)
                 knows.append(single_know)
@@ -93,4 +93,7 @@ if __name__ == "__main__":
     reader = HollEReader(raw_data_path="/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/holl_e/raw_data")
     train_data, dev_data, test_data = reader.read_all()
     vocab = reader.read_vocab()
+    cache_file = "/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/holl_e/cache/reader_datas.pkl"
+    from cogagent.utils.io_utils import save_pickle
+    save_pickle([train_data,dev_data,test_data,vocab],cache_file)
     print("end")
