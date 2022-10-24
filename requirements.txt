@@ -5,3 +5,4 @@ tensorboard==2.9.0
 numpy>=1.22.3
 prettytable>=3.0.0
 nltk
+cotk==0.0.1  # used for glove word vector loading
