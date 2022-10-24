@@ -77,7 +77,6 @@ class HollEForDiffksProcessor(BaseProcessor):
                 padded_post[i,:len(single_post)] = single_post
                 padded_resp[i,:len(single_resp)] = single_resp
 
-            print("Debug Usage")
             padded_wiki = np.zeros((self.max_sent_num,self.max_wiki_num,self.max_wiki_length),dtype=int)
             for i in range(sent_num):
                 for j in range(wiki_num[i]):
@@ -121,12 +120,13 @@ class HollEForDiffksProcessor(BaseProcessor):
 
 if __name__ == "__main__":
     cache_file = "/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/holl_e/cache/reader_datas.pkl"
-    from cogagent.utils.io_utils import load_pickle
+    from cogagent.utils.io_utils import load_pickle,save_pickle
     train_data,dev_data,test_data,vocab = load_pickle(cache_file)
 
     processor = HollEForDiffksProcessor(max_token_len=512, vocab=vocab,debug=True)
     train_dataset = processor.process_train(train_data)
     dev_dataset = processor.process_dev(dev_data)
     test_dataset = processor.process_test(test_data)
+    save_pickle([train_dataset,dev_dataset,test_dataset,vocab],"/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/holl_e/cache/processor_datas.pkl")
     print("end")
 
