@@ -24,9 +24,9 @@ class HollEForDiffksProcessor(BaseProcessor):
         self._max_context_length = 100
         self.max_sent_num = 10
         self.max_wiki_num = 200
-        self.max_post_length = 100
-        self.max_resp_length = 100
-        self.max_wiki_length = 100
+        self.max_post_length = 128
+        self.max_resp_length = 128
+        self.max_wiki_length = 256
 
         self.valid_vocab_len = 16004
 
