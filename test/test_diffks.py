@@ -17,7 +17,7 @@ train_dataset, dev_dataset, test_dataset,vocab = load_pickle(cache_file)
 model = DiffKSModel(glove_path='/data/hongbang/CogAGENT/datapath/pretrained_models/glove', vocab=vocab)
 metric = BaseClassificationMetric(mode="binary")
 loss = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=0.00001)
+optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
 # 新加了注释
 trainer = Trainer(model,
@@ -34,7 +34,7 @@ trainer = Trainer(model,
                   drop_last=False,
                   gradient_accumulation_steps=1,
                   num_workers=5,
-                  print_every=None,
+                  print_every=1,
                   scheduler_steps=None,
                   validate_steps=100,
                   save_by_metric="F1",
