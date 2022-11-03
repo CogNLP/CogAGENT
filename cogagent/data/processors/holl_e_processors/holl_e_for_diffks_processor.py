@@ -18,12 +18,15 @@ class HollEForDiffksProcessor(BaseProcessor):
         self.word_vocab = vocab["word_vocab"]
         self.word2id= self.word_vocab.get_label2id_dict()
         self.unk_id,self.eos_id = self.word2id["<unk>"],self.word2id["<eos>"]
-        self.line2id = lambda line: ([] + list(map(lambda word: self.word2id.get(word, self.unk_id), line)) + [self.eos_id])[:self.max_token_len]
+        self.go_id = self.word2id["<go>"]
+        self.line2id = lambda line: ([self.go_id] + list(map(lambda word: self.word2id.get(word, self.unk_id), line)) + [self.eos_id])[:self.max_token_len]
         self.know2id = lambda line: (list(map(lambda word: self.word2id.get(word, self.unk_id), line)))[:self.max_token_len]
+
+        # self.wiki_nums = []
 
         self._max_context_length = 100
         self.max_sent_num = 10
-        self.max_wiki_num = 200
+        self.max_wiki_num = 280
         self.max_post_length = 128
         self.max_resp_length = 128
         self.max_wiki_length = 256
@@ -34,6 +37,14 @@ class HollEForDiffksProcessor(BaseProcessor):
         datable = DataTable()
         data = self.debug_process(data)
         print("Processing data...")
+        # tmp_data = DataTable()
+        # for i in range(97* 4 , 102 * 4):
+        #     dialog = data[i]
+        #     post, resp, wiki, atten = dialog
+        #     tmp_data("post",post)
+        #     tmp_data("resp", resp)
+        #     tmp_data("wiki", wiki)
+        #     tmp_data("atten", atten)
         for dialog in tqdm(data):
             post,resp,wiki,atten = dialog
 
@@ -50,13 +61,18 @@ class HollEForDiffksProcessor(BaseProcessor):
 
             sent_num = len(post)
 
-            post_length = list(map(len,post))[:self.max_sent_num]
+            f_post_length = lambda x:min(len(x),self.max_post_length)
+            post_length = list(map(f_post_length,post))[:self.max_sent_num]
             post_length += [0] * (self.max_sent_num - len(post_length))
 
-            resp_length = list(map(len,resp))[:self.max_sent_num]
+            f_resp_length = lambda x:min(len(x),self.max_resp_length)
+            resp_length = list(map(f_resp_length,resp))[:self.max_sent_num]
+            # check_length = np.array(resp_length)
+            # singular = check_length[check_length <= 1]
             resp_length += [0] * (self.max_sent_num - len(resp_length))
 
-            wiki_num = list(map(len,wiki))[:self.max_sent_num]
+            f_wiki_num = lambda x:min(len(x),self.max_wiki_num)
+            wiki_num = list(map(f_wiki_num,wiki))[:self.max_sent_num]
             wiki_num += [0] * (self.max_sent_num - len(wiki_num))
 
             atten = atten[:self.max_sent_num]
@@ -64,7 +80,8 @@ class HollEForDiffksProcessor(BaseProcessor):
 
             wiki_length = np.zeros((self.max_sent_num,self.max_wiki_num),dtype=int)
             for i in range(sent_num):
-                single_wiki_length = list(map(len,wiki[i]))[:self.max_wiki_num]
+                f_wiki_length = lambda x:min(len(x),self.max_wiki_length)
+                single_wiki_length = list(map(f_wiki_length,wiki[i]))[:self.max_wiki_num]
                 wiki_length[i,:len(single_wiki_length)] = single_wiki_length
 
             wiki_length = wiki_length.tolist()
@@ -79,7 +96,10 @@ class HollEForDiffksProcessor(BaseProcessor):
 
             padded_wiki = np.zeros((self.max_sent_num,self.max_wiki_num,self.max_wiki_length),dtype=int)
             for i in range(sent_num):
+                # self.wiki_nums.append(wiki_num[i])
                 for j in range(wiki_num[i]):
+                    # if wiki_num[i] > self.max_wiki_num:
+                    #     print("{} exceed the maximum wiki number {}!".format(wiki_num[i],self.max_wiki_num))
                     single_wiki = wiki[i][j][:self.max_wiki_length]
                     padded_wiki[i,j,:len(single_wiki)] = single_wiki
 
@@ -123,7 +143,7 @@ if __name__ == "__main__":
     from cogagent.utils.io_utils import load_pickle,save_pickle
     train_data,dev_data,test_data,vocab = load_pickle(cache_file)
 
-    processor = HollEForDiffksProcessor(max_token_len=512, vocab=vocab,debug=True)
+    processor = HollEForDiffksProcessor(max_token_len=512, vocab=vocab,debug=False)
     train_dataset = processor.process_train(train_data)
     dev_dataset = processor.process_dev(dev_data)
     test_dataset = processor.process_test(test_data)
