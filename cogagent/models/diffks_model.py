@@ -35,7 +35,7 @@ class DiffKSModel(BaseModel):
         sent_num = batch["sent_num"]
         resp_all_vocabs = batch["resp_all_vocabs"]
         w_o_all = self.detail_forward(batch)
-
+        metric_function.evaluate(w_o_all,resp_all_vocabs,sent_num)
 
     def detail_forward(self,batch):
         """
