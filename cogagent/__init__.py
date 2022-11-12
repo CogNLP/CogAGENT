@@ -12,8 +12,11 @@ __all__ = [
     # data
     "BaseProcessor",
     "Sst2Processor",
+    "WoWForDiffksProcessor",
+
     "BaseReader",
     "Sst2Reader",
+    "WoWReader",
 
     # models
     "PlmAutoModel",

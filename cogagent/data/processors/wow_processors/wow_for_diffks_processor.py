@@ -59,7 +59,7 @@ class WoWForDiffksProcessor(BaseProcessor):
                         continue
                     post[j] = (post[j - 1] + resp[j - 1] + post[j])[-self._max_context_length:]
 
-            sent_num = len(post)
+            sent_num = min(len(post),self.max_sent_num)
 
             f_post_length = lambda x:min(len(x),self.max_post_length)
             post_length = list(map(f_post_length,post))[:self.max_sent_num]
@@ -147,6 +147,6 @@ if __name__ == "__main__":
     train_dataset = processor.process_train(train_data)
     dev_dataset = processor.process_dev(dev_data)
     test_dataset = processor.process_test(test_data)
-    save_pickle([train_dataset,dev_dataset,test_dataset,vocab],"/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/wow/cache/processor_datas.pkl")
+    save_pickle([train_dataset,dev_dataset,test_dataset,vocab],"/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/wow/cache/processor_datas_debug.pkl")
     print("end")
 
