@@ -26,6 +26,27 @@ class DiffKSModel(BaseModel):
         self.connectLayer = ConnectLayer(eh_size,dh_size,hist_len,hist_weights)
         self.genNetwork = GenNetwork(embedding_size,eh_size,dh_size,vocab_size,unk_id,drop_out,vocab)
 
+    def predict(self, batch):
+        i = batch["i"].item()
+        curr_post, curr_post_length = batch["curr_post"],batch["curr_post_length"]
+        curr_wiki,curr_wiki_length,curr_wiki_num = batch["padded_wiki"][:,i],batch["wiki_length"][:,i],batch["wiki_num"][:,i]
+        curr_post_embedding, curr_wiki_embedding = self.embLayer.detail_forward(curr_post),self.embLayer.detail_forward(curr_wiki)
+        h, hn, valid_sen, reverse_valid_sen = self.postEncoder.detail_forward(curr_post_embedding, curr_post_length)
+        h1, hn1 = self.wikiEncoder(curr_wiki_embedding, curr_wiki_length)
+        if not self.disentangle:
+            selected_wiki_sen, selected_wiki_h, init_h, wiki_cv, single_atten_loss, (
+            acc_prob, acc_label, acc_pred) = self.connectLayer.detail_forward()
+        else:
+            selected_wiki_sen, selected_wiki_h, init_h, wiki_cv, single_atten_loss, (
+            acc_prob, acc_label, acc_pred) = self.connectLayer.detail_forward_disentangle(
+                i, valid_sen, reverse_valid_sen, curr_wiki, curr_wiki_num, h1, hn1, None, h, hn
+            )
+        w_o_all = self.genNetwork.detail_forward(i, valid_sen, reverse_valid_sen, selected_wiki_sen, selected_wiki_h,
+                                                 init_h, wiki_cv, self.embLayer.embedding)
+
+        gen_resp = w_o_all[-1].transpose(0, 1).cpu().tolist()
+        return gen_resp
+
     def loss(self, batch, loss_function):
         sent_loss,atten_loss = self.forward(batch)
 
@@ -86,7 +107,7 @@ class DiffKSModel(BaseModel):
                     i,valid_sen,reverse_valid_sen,curr_wiki,curr_wiki_num,h1,hn1,batch["atten"][:,i],h,hn
                 )
             w_o_all = self.genNetwork.detail_forward(i,valid_sen,reverse_valid_sen,selected_wiki_sen,selected_wiki_h,
-                                    curr_resp,curr_resp_length,curr_resp_embedding,init_h,wiki_cv,self.embLayer.embedding)
+                                    init_h,wiki_cv,self.embLayer.embedding)
 
 
             if i < dialogue_turns - 1:
@@ -296,7 +317,8 @@ class ConnectLayer(nn.Module):
         valid_wiki_h_n1 = torch.index_select(h_n1, 1, valid_sen)
         valid_wiki_sen = torch.index_select(wiki_sen, 0, valid_sen)
         valid_wiki_h1 = torch.index_select(h1,1,valid_sen)
-        atten_label = torch.index_select(atten_label,0,valid_sen)
+        if atten_label:
+            atten_label = torch.index_select(atten_label,0,valid_sen)
         valid_wiki_num = torch.index_select(wiki_num,0,valid_sen)
 
         self.beta = torch.sum(valid_wiki_h_n1 * h_n, dim = 2).T # (batch_size_valid,wiki_len)
@@ -324,8 +346,11 @@ class ConnectLayer(nn.Module):
 
             self.beta = self.beta[:, :atten_sum.shape[0]] + torch.t(atten_sum)
 
-        atten_loss = self.atten_lossCE(self.beta,atten_label)
-        atten_loss = torch.zeros_like(atten_loss) if torch.isnan(atten_loss).detach().cpu().numpy() > 0 else atten_loss
+        if atten_label:
+            atten_loss = self.atten_lossCE(self.beta,atten_label)
+            atten_loss = torch.zeros_like(atten_loss) if torch.isnan(atten_loss).detach().cpu().numpy() > 0 else atten_loss
+        else:
+            atten_loss = None
 
         self.beta = torch.t(self.beta) - 1e10 * reverse_mask[:self.beta.shape[1]]
         self.alpha = self.wiki_atten(self.beta)  # wiki_len * valid_num
@@ -343,7 +368,7 @@ class ConnectLayer(nn.Module):
             self.last_wiki = torch.cat([torch.index_select(wiki_cv, 0, reverse_valid_sen).unsqueeze(-1),
                                         self.last_wiki[:, :, :self.hist_len-1]], dim=-1)
 
-        acc_label = torch.index_select(atten_label, 0, reverse_valid_sen).cpu().tolist()
+        acc_label = torch.index_select(atten_label, 0, reverse_valid_sen).cpu().tolist() if atten_label else None
         acc_pred = torch.index_select(atten_indices, 0, reverse_valid_sen).cpu().tolist()
 
         atten_indices = atten_indices.unsqueeze(1)
@@ -438,11 +463,9 @@ class GenNetwork(nn.Module):
 
     def detail_forward(self,i,valid_sen,reverse_valid_sen,
                 selected_wiki_sen,selected_wiki_h,
-                curr_resp,curr_resp_length,curr_resp_embedding,
                 init_h,wiki_cv,embLayer):
         gen_w_o,gen_emb,gen_length,gen_h_n = self.free_run(i,valid_sen,reverse_valid_sen,
                 selected_wiki_sen,selected_wiki_h,
-                curr_resp,curr_resp_length,curr_resp_embedding,
                 init_h,wiki_cv,embLayer)
         # dm = self.param.volatile.dm
         w_o = gen_w_o.detach().cpu().numpy()
@@ -459,7 +482,6 @@ class GenNetwork(nn.Module):
 
     def free_run(self,i,valid_sen,reverse_valid_sen,
                 selected_wiki_sen,selected_wiki_h,
-                curr_resp,curr_resp_length,curr_resp_embedding,
                 init_h,wiki_cv,embLayer,mode='max'):
         batch_size = len(valid_sen)
         device = next(embLayer.parameters()).device
