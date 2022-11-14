@@ -7,12 +7,15 @@ from tqdm import tqdm
 from collections import Counter
 
 class WoWReader(BaseReader):
-    def __init__(self, raw_data_path):
+    def __init__(self, raw_data_path,test_mode='seen'):
         super().__init__()
+        if test_mode not in ['seen','unseen']:
+            assert ValueError("Test mode must be seen or unseen but got {}!".format(test_mode))
         self.raw_data_path = raw_data_path
         self.train_file = 'train.json'
         self.dev_file = 'dev.json'
-        self.test_file = 'test_seen.json'
+        # self.test_file = 'test_seen.json'
+        self.test_file = 'test_{}.json'.format(test_mode)
         self.train_path = os.path.join(raw_data_path, self.train_file)
         self.dev_path = os.path.join(raw_data_path, self.dev_file)
         self.test_path = os.path.join(raw_data_path, self.test_file)
@@ -91,10 +94,10 @@ class WoWReader(BaseReader):
 
 
 if __name__ == "__main__":
-    reader = WoWReader(raw_data_path="/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/wow/raw_data")
+    reader = WoWReader(raw_data_path="/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/wow/raw_data",test_mode='unseen')
     train_data, dev_data, test_data = reader.read_all()
     vocab = reader.read_vocab()
     cache_file = "/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/wow/cache/reader_datas.pkl"
-    from cogagent.utils.io_utils import save_pickle
-    save_pickle([train_data,dev_data,test_data,vocab],cache_file)
+    # from cogagent.utils.io_utils import save_pickle
+    # save_pickle([train_data,dev_data,test_data,vocab],cache_file)
     print("end")
