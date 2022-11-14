@@ -31,7 +31,8 @@ class WoWForDiffksProcessor(BaseProcessor):
         self.max_resp_length = 128
         self.max_wiki_length = 256
 
-        self.valid_vocab_len = len(vocab["vocab_list"]) - 4 # <pad>,<unk>,<go>,<eos>
+        # self.valid_vocab_len = len(vocab["vocab_list"]) - 4 # <pad>,<unk>,<go>,<eos>
+        self.valid_vocab_len = len(self.word_vocab) - 4 # <pad>,<unk>,<go>,<eos>
 
     def _process(self, data,is_training=True):
         datable = DataTable()

@@ -14,12 +14,13 @@ class DiffKSModel(BaseModel):
         self.vocab = vocab
         self.disentangle = True
 
-        vocab_size = len(vocab["vocab_list"])
+        # vocab_size = len(vocab["vocab_list"])
+        vocab_size = len(vocab["word_vocab"])
         unk_id = self.vocab["word_vocab"].label2id("<unk>")
         self.max_sent_length = 512
 
         self.embLayer = EmbeddingLayer(vocab_size, embedding_size, drop_out,
-                                       glove_path=glove_path, vocab_list=vocab["vocab_list"])
+                                       glove_path=glove_path, vocab_list=[id for id in self.vocab["word_vocab"].id2label_dict.values()])
         self.postEncoder = PostEncoder(embedding_size,eh_size)
         self.wikiEncoder = WikiEncoder(embedding_size,eh_size)
         self.connectLayer = ConnectLayer(eh_size,dh_size,hist_len,hist_weights)

@@ -88,9 +88,11 @@ class WoWReader(BaseReader):
 
     def read_vocab(self):
         vocab = Vocabulary()
-        vocab.add_dict({w: i for i, w in enumerate(self.vocab_list)})
+        # vocab.add_dict({w: i for i, w in enumerate(self.vocab_list)})
+        vocab.add_dict({w: i for i, w in enumerate(self.vocab_list[:self.valid_vocab_len])})
         vocab.create()
-        return {"word_vocab": vocab,"vocab_list":self.vocab_list[:self.valid_vocab_len]}
+        return {"word_vocab": vocab}
+        # return {"word_vocab": vocab,"vocab_list":self.vocab_list[:self.valid_vocab_len]}
 
 
 if __name__ == "__main__":
