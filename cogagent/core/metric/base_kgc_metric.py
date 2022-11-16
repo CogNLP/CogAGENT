@@ -6,7 +6,7 @@ from sklearn.metrics import accuracy_score
 from nltk.translate.bleu_score import corpus_bleu, SmoothingFunction
 
 class BaseKGCMetric(BaseMetric):
-    def __init__(self, default_metric_name=None):
+    def __init__(self, default_metric_name=None,vocab=None):
         super().__init__()
 
         self.hyps_list = list()
@@ -17,6 +17,9 @@ class BaseKGCMetric(BaseMetric):
             self.default_metric_name = "bleu-4"
         else:
             self.default_metric_name = default_metric_name
+        self.vocab = vocab
+        self.pad_id = vocab["word_vocab"].label2id("<pad>")
+        self.recover_sentence = lambda x:list(map(lambda id:self.vocab["word_vocab"].id2label(id),x))
 
     def evaluate(self, hyps, refs,sent_num):
         refs = refs.cpu().numpy()
@@ -25,8 +28,11 @@ class BaseKGCMetric(BaseMetric):
             gen_session = hyps[i]
             ref_session = refs[i]
             for j in range(turn_length):
-                self.hyps_list.append(gen_session[j].tolist())
-                self.refs_list.append([ref_session[j].tolist()])
+                gen_session_j = gen_session[j][gen_session[j]!=self.pad_id]
+                ref_session_j = ref_session[j][ref_session[j]!=self.pad_id]
+                if ref_session_j.size != 0:
+                    self.hyps_list.append(gen_session_j.tolist()[:-1])
+                    self.refs_list.append([ref_session_j.tolist()[1:-1]])
 
 
     def get_metric(self, reset=True):
