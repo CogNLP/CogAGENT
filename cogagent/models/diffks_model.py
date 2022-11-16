@@ -317,7 +317,7 @@ class ConnectLayer(nn.Module):
         valid_wiki_h_n1 = torch.index_select(h_n1, 1, valid_sen)
         valid_wiki_sen = torch.index_select(wiki_sen, 0, valid_sen)
         valid_wiki_h1 = torch.index_select(h1,1,valid_sen)
-        if atten_label:
+        if atten_label is not None:
             atten_label = torch.index_select(atten_label,0,valid_sen)
         valid_wiki_num = torch.index_select(wiki_num,0,valid_sen)
 
@@ -346,7 +346,7 @@ class ConnectLayer(nn.Module):
 
             self.beta = self.beta[:, :atten_sum.shape[0]] + torch.t(atten_sum)
 
-        if atten_label:
+        if atten_label is not None:
             atten_loss = self.atten_lossCE(self.beta,atten_label)
             atten_loss = torch.zeros_like(atten_loss) if torch.isnan(atten_loss).detach().cpu().numpy() > 0 else atten_loss
         else:
@@ -368,7 +368,7 @@ class ConnectLayer(nn.Module):
             self.last_wiki = torch.cat([torch.index_select(wiki_cv, 0, reverse_valid_sen).unsqueeze(-1),
                                         self.last_wiki[:, :, :self.hist_len-1]], dim=-1)
 
-        acc_label = torch.index_select(atten_label, 0, reverse_valid_sen).cpu().tolist() if atten_label else None
+        acc_label = torch.index_select(atten_label, 0, reverse_valid_sen).cpu().tolist() if atten_label is not None else None
         acc_pred = torch.index_select(atten_indices, 0, reverse_valid_sen).cpu().tolist()
 
         atten_indices = atten_indices.unsqueeze(1)
