@@ -144,10 +144,10 @@ if __name__ == "__main__":
     from cogagent.utils.io_utils import load_pickle,save_pickle
     train_data,dev_data,test_data,vocab = load_pickle(cache_file)
 
-    processor = WoWForDiffksProcessor(max_token_len=512, vocab=vocab,debug=True)
+    processor = WoWForDiffksProcessor(max_token_len=512, vocab=vocab,debug=False)
     train_dataset = processor.process_train(train_data)
     dev_dataset = processor.process_dev(dev_data)
     test_dataset = processor.process_test(test_data)
-    save_pickle([train_dataset,dev_dataset,test_dataset,vocab],"/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/wow/cache/processor_datas_debug.pkl")
+    save_pickle([train_dataset,dev_dataset,test_dataset,vocab],"/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/wow/cache/processor_datas.pkl")
     print("end")
 

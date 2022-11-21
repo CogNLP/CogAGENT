@@ -100,6 +100,6 @@ if __name__ == "__main__":
     train_data, dev_data, test_data = reader.read_all()
     vocab = reader.read_vocab()
     cache_file = "/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/wow/cache/reader_datas.pkl"
-    # from cogagent.utils.io_utils import save_pickle
-    # save_pickle([train_data,dev_data,test_data,vocab],cache_file)
+    from cogagent.utils.io_utils import save_pickle
+    save_pickle([train_data,dev_data,test_data,vocab],cache_file)
     print("end")

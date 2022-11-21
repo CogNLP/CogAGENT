@@ -9,7 +9,7 @@ import torch.optim as optim
 device, output_path = init_cogagent(
     device_id=8,
     output_path="/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/holl_e/experimental_result",
-    folder_tag="run_diffks_on_holl_e_limit_max_length",
+    folder_tag="run_diffks_on_holl_e_limit_max_length_resume20epochs",
 )
 
 cache_file = "/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/holl_e/cache/processor_datas.pkl"
@@ -18,7 +18,7 @@ train_dataset, dev_dataset, test_dataset,vocab = load_pickle(cache_file)
 # dev_dataset = torch.utils.data.Subset(dev_dataset,list(range(4*105,len(dev_dataset))))
 
 model = DiffKSModel(glove_path='/data/hongbang/CogAGENT/datapath/pretrained_models/glove', vocab=vocab)
-metric = BaseKGCMetric(default_metric_name="bleu-4")
+metric = BaseKGCMetric(default_metric_name="bleu-4",vocab=vocab)
 loss = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
@@ -26,7 +26,8 @@ optimizer = optim.Adam(model.parameters(), lr=0.0001)
 trainer = Trainer(model,
                   train_dataset,
                   dev_data=dev_dataset,
-                  n_epochs=20,
+                  n_epochs=40,
+                  checkpoint_path="/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/holl_e/experimental_result/run_diffks_on_holl_e_limit_max_length--2022-11-02--15-07-55.22/best_model/checkpoint-75726",
                   batch_size=2,
                   loss=loss,
                   optimizer=optimizer,

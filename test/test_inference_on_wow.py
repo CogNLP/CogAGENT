@@ -21,7 +21,7 @@ processor = WoWForDiffksProcessor(max_token_len=512, vocab=vocab, debug=False)
 test_dataset = processor.process_test(test_data)
 
 model = DiffKSModel(glove_path='/data/hongbang/CogAGENT/datapath/pretrained_models/glove', vocab=vocab)
-metric = BaseKGCMetric(default_metric_name="bleu-4")
+metric = BaseKGCMetric(default_metric_name="bleu-4",vocab=vocab)
 loss = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.0001)
 

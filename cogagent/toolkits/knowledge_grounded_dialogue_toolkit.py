@@ -181,7 +181,7 @@ def pad_post(posts):
 if __name__ == '__main__':
     agent = KnowledgeGroundedConversationAgent(
         bert_model=None,
-        model_path='/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/wow/experimental_result/run_diffks_wow--2022-11-13--04-17-09.20/best_model/checkpoint-9215/models.pt',
+        model_path='/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/wow/experimental_result/run_diffks_wow_lr1e-4--2022-11-16--01-01-39.05/best_model/checkpoint-336000/models.pt',
         vocabulary_path='/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/wow/cache/wow_vocab.pkl',
         device=torch.device("cuda:0"),
         debug=False,

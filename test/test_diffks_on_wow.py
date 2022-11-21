@@ -9,7 +9,7 @@ import torch.optim as optim
 device, output_path = init_cogagent(
     device_id=8,
     output_path="/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/wow/experimental_result",
-    folder_tag="run_diffks_wow",
+    folder_tag="run_diffks_wow_lr1e-4",
 )
 
 # cache_file = "/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/wow/cache/processor_datas_debug.pkl"
@@ -27,14 +27,14 @@ dev_dataset = processor.process_dev(dev_data)
 test_dataset = processor.process_test(test_data)
 
 model = DiffKSModel(glove_path='/data/hongbang/CogAGENT/datapath/pretrained_models/glove', vocab=vocab)
-metric = BaseKGCMetric(default_metric_name="bleu-4")
+metric = BaseKGCMetric(default_metric_name="bleu-4",vocab=vocab)
 loss = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
 # 新加了注释
 trainer = Trainer(model,
                   train_dataset,
-                  dev_data=dev_dataset,
+                  dev_data=test_dataset,
                   n_epochs=40,
                   batch_size=2,
                   loss=loss,
