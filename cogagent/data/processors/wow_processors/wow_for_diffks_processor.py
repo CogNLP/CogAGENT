@@ -148,6 +148,6 @@ if __name__ == "__main__":
     train_dataset = processor.process_train(train_data)
     dev_dataset = processor.process_dev(dev_data)
     test_dataset = processor.process_test(test_data)
-    save_pickle([train_dataset,dev_dataset,test_dataset,vocab],"/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/wow/cache/processor_datas.pkl")
+    # save_pickle([train_dataset,dev_dataset,test_dataset,vocab],"/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/wow/cache/processor_datas.pkl")
     print("end")
 

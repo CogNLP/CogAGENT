@@ -37,6 +37,10 @@ class KnowledgeGroundedConversationAgent(BaseToolkit):
         self.id2line = lambda line: list(map(lambda id:self.id2word.get(id,"<unk>"),line))
         self.f = lambda sen: ' '.join(WordPunctTokenizer().tokenize(sen.strip())).lower()
 
+        f = lambda x:list(map(lambda id:self.vocabulary.id2label(id),x))
+        self.recover_sentence = lambda x:" ".join(f(list(x)))
+        self.recover_sentence_list = lambda x:[self.recover_sentence(elem) for elem in x]
+
         self.max_wiki_num = 280
         self.max_wiki_length = 256
         self.max_post_length = 128
@@ -53,6 +57,7 @@ class KnowledgeGroundedConversationAgent(BaseToolkit):
 
     def run(self):
         topic = self.choose_topic()
+        # topic = "Tofu"
         padded_wiki,wiki_length,wiki_num = self.search_knowledge(topic)
         dialogue_turns = int(padded_wiki.shape[0])
 
@@ -73,7 +78,8 @@ class KnowledgeGroundedConversationAgent(BaseToolkit):
             })
             move_dict_value_to_device(input_batch,self.device)
             gen_resp = self.model.predict(input_batch)
-            gen_resp_str = " ".join(self.id2line(gen_resp[0]))
+            gen_resp_str = self.recover_sentence(gen_resp[:-1])
+            # gen_resp_str = " ".join(self.id2line(gen_resp[0]))
             print(">>Agent:",gen_resp_str)
             if step < dialogue_turns - 1:
                 input_msg = self.get_user_input()
@@ -94,7 +100,11 @@ class KnowledgeGroundedConversationAgent(BaseToolkit):
         knowledge = self.topic2knowledge[topic]
         # wiki_str = max(knowledge,key=len)
         wiki_str = random.choice(knowledge)
-        wiki = [list(map(self.know2id, wiki_psg)) for wiki_psg in wiki_str]
+        knows = []
+        for single_know in wiki_str:
+            single_know = [[]] + [each.split()[:] for each in single_know]
+            knows.append(single_know)
+        wiki = [list(map(self.know2id, wiki_psg)) for wiki_psg in knows]
         max_sent_num = len(wiki)
         sent_num = max_sent_num
         f_wiki_num = lambda x: min(len(x), self.max_wiki_num)
@@ -181,7 +191,7 @@ def pad_post(posts):
 if __name__ == '__main__':
     agent = KnowledgeGroundedConversationAgent(
         bert_model=None,
-        model_path='/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/wow/experimental_result/run_diffks_wow_lr1e-4--2022-11-16--01-01-39.05/best_model/checkpoint-336000/models.pt',
+        model_path='/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/wow/experimental_result/run_diffks_wow_lr1e-4--2022-11-16--01-01-39.05/best_model/checkpoint-376000/models.pt',
         vocabulary_path='/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/wow/cache/wow_vocab.pkl',
         device=torch.device("cuda:0"),
         debug=False,
