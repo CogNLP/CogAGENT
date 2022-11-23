@@ -17,6 +17,10 @@ class DiffKSModel(BaseModel):
         # vocab_size = len(vocab["vocab_list"])
         vocab_size = len(vocab["word_vocab"])
         unk_id = self.vocab["word_vocab"].label2id("<unk>")
+        self.pad_id = self.vocab["word_vocab"].label2id("<pad>")
+        f = lambda x:list(map(lambda id:self.vocab["word_vocab"].id2label(id),x))
+        self.recover_sentence = lambda x:" ".join(f(list(x)))
+        self.recover_sentence_list = lambda x:[self.recover_sentence(elem) for elem in x]
         self.max_sent_length = 512
 
         self.embLayer = EmbeddingLayer(vocab_size, embedding_size, drop_out,
@@ -44,8 +48,10 @@ class DiffKSModel(BaseModel):
         w_o_all = self.genNetwork.detail_forward(i, valid_sen, reverse_valid_sen, selected_wiki_sen, selected_wiki_h,
                                                  init_h, wiki_cv, self.embLayer.embedding)
 
-        gen_resp = w_o_all[-1].transpose(0, 1).cpu().tolist()
-        return gen_resp
+        gen_resp = w_o_all[-1].transpose(0, 1)
+        gen_resp = gen_resp[gen_resp != self.pad_id]
+        # gen_resp = w_o_all[-1].transpose(0, 1).cpu().tolist()
+        return gen_resp.cpu().tolist()
 
     def loss(self, batch, loss_function):
         sent_loss,atten_loss = self.forward(batch)
