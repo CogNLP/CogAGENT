@@ -19,7 +19,9 @@ class BaseKGCMetric(BaseMetric):
             self.default_metric_name = default_metric_name
         self.vocab = vocab
         self.pad_id = vocab["word_vocab"].label2id("<pad>")
-        self.recover_sentence = lambda x:list(map(lambda id:self.vocab["word_vocab"].id2label(id),x))
+        f = lambda x:list(map(lambda id:self.vocab["word_vocab"].id2label(id),x))
+        self.recover_sentence = lambda x:" ".join(f(list(x)))
+        self.recover_sentence_list = lambda x:[self.recover_sentence(elem) for elem in x]
 
     def evaluate(self, hyps, refs,sent_num):
         refs = refs.cpu().numpy()
