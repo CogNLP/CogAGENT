@@ -16,6 +16,7 @@ cache_file = "/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/holl_
 train_dataset, dev_dataset, test_dataset,vocab = load_pickle(cache_file)
 # train_dataset = torch.utils.data.Subset(train_dataset,list(range(4*98,len(train_dataset))))
 # dev_dataset = torch.utils.data.Subset(dev_dataset,list(range(4*105,len(dev_dataset))))
+# train_dataset = torch.utils.data.Subset(train_dataset,list(range(68*2,74*2)))
 
 model = DiffKSModel(glove_path='/data/hongbang/CogAGENT/datapath/pretrained_models/glove', vocab=vocab)
 metric = BaseKGCMetric(default_metric_name="bleu-4",vocab=vocab)
