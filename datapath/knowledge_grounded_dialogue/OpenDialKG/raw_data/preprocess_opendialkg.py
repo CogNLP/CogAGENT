@@ -3,7 +3,7 @@ import json
 import random
 from argparse import ArgumentParser
 from typing import Any, Dict, Iterable, Tuple
-
+from copy import deepcopy
 from tqdm import tqdm
 import spacy
 from sklearn.model_selection import train_test_split
@@ -31,6 +31,7 @@ def parse_message(dialogue: str, dialog_id: int) -> Iterable[Dict[str, Any]]:
     json_dialog = json.loads(dialogue)
     history = []
     metadata = {}
+    utterances = []
     for i, turn in enumerate(json_dialog):
         if i == 0:
             if "message" in turn:
@@ -44,17 +45,23 @@ def parse_message(dialogue: str, dialog_id: int) -> Iterable[Dict[str, Any]]:
                     }
             else:
                 response = _tokenize(turn["message"])
-                yield {
+                utterances.append(deepcopy({
                     "history": history,
                     "response": response,
                     "speaker": turn["sender"],
                     "knowledge_base": metadata,
                     "dialogue_id": dialog_id,
-                }
-
+                }))
+                # utterances.append({
+                #     "history": history,
+                #     "response": response,
+                #     "speaker": turn["sender"],
+                #     "knowledge_base": metadata,
+                #     "dialogue_id": dialog_id,
+                # })
                 metadata = {}
                 history.append(response)
-
+    return utterances
 
 def convert(data_file: str, out_file: list):
     row_count = sum(1 for row in read_csv(data_file))

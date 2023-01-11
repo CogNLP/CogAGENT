@@ -11,6 +11,7 @@ datapath
 │  │  ├─ raw_data
 │  │  │  ├─ original_data
 │  │  │  │  ├─ opendialkg.csv
+│  │  │  │  ├─ opendialkg_triples.txt
 ```
 
 Runing the preprocess code provided by [this file](./preprocess_opendialkg.py) and the final form is listed below:
@@ -25,6 +26,7 @@ datapath
 │  │  │  ├─ test_nph_data.json
 │  │  │  ├─ original_data
 │  │  │  │  ├─ opendialkg.csv
+│  │  │  │  ├─ opendialkg_triples.txt
 ```
 
 Then, download the [graph embedding](https://drive.google.com/drive/folders/1KzjCq0-8K1pqi1TFfsEC3iKiaK-2oL1I) and then put the in the following form:
@@ -44,4 +46,5 @@ datapath
 │  │  │  │  ├─ relation_embedding.npy
 │  │  │  ├─ original_data
 │  │  │  │  ├─ opendialkg.csv
+│  │  │  │  ├─ opendialkg_triples.txt
 ```
