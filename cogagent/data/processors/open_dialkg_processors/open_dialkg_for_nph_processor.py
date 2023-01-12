@@ -53,50 +53,6 @@ class OpenDialKGForNPHProcessor(BaseProcessor):
         else:
             return tokens
 
-    def _build_entity_ref(
-        self, response: str, kb_triples: List[Triple], new_nodes: Set[str], new_rels: Set[str]
-    ) -> Tuple[Optional[Dict[str, Tuple[str, str, int, str]]], int]:
-        response_ents = [(ent, kg_ent) for ent, kg_ent, _ in self.ner.extract(response)]
-        if not response_ents:
-            return None, 0
-
-        entity_refs = OrderedDict()
-        unmatched_triples = set()
-        seen_kg_ents = set()
-        for ent, kg_ent in response_ents:
-            if kg_ent in seen_kg_ents:
-                continue
-            seen_kg_ents.add(kg_ent)
-            for t in range(len(kb_triples) - 1, -1, -1):
-                triple = kb_triples[t]
-                if ent.lower() == triple.subject.lower():
-                    if kg_ent in self.ner.knowledge_graph[triple.object]:
-                        entity_refs[ent] = (triple.object, triple.predicate, 0, kg_ent)
-                        break
-                    else:
-                        unmatched_triples.add((triple.subject, triple.predicate, triple.object))
-                elif ent.lower() == triple.object.lower():
-                    if kg_ent in self.ner.knowledge_graph[triple.subject]:
-                        entity_refs[ent] = (triple.subject, triple.predicate, 1, kg_ent)
-                        break
-                    else:
-                        unmatched_triples.add((triple.subject, triple.predicate, triple.object))
-
-        num_notfound_triples = len(unmatched_triples)
-
-        if not entity_refs:
-            return None, num_notfound_triples
-
-        for ent, (pivot, *_) in entity_refs.items():
-            for nbr, edges in self.ner.knowledge_graph[pivot].items():
-                if not self.kge.contains_node(nbr):
-                    new_nodes.add(nbr)
-                for rel in edges.keys():
-                    if not self.kge.contains_rel(rel):
-                        new_rels.add(rel)
-
-        return entity_refs, num_notfound_triples
-
     def _build_from_segments(
         self,
         kb_triples: List[Triple],
@@ -438,52 +394,26 @@ class OpenDialKGForNPHProcessor(BaseProcessor):
         data = self.debug_process(data)
         print("Processing data...")
 
-        new_nodes, new_rels = set(), set()
-        num_notfound_triples = 0
-        num_nce_instances = 0
-        num_lm_instances = 0
-
         for dialog in tqdm(data):
-            history,response,speaker,knowledge_base,dialogue_id = dialog
-            response = _normalize(response)  # dialogue response
-            if knowledge_base: # knowledge_base
-                kb_triples = list(Triple.of(knowledge_base['paths']))
-                if kb_triples:
-                    render_kb = knowledge_base["render"]
-                else:
-                    continue
-            else:
-                continue
+            history,response,speaker,dialogue_id,kb_triples,entities = dialog
+
             if speaker.lower() in ['user','wizard']:
                 speaker = self.special_tokens.speaker2
             else:
                 speaker = self.special_tokens.speaker1
 
-            if kb_triples:
-                entity_refs, n_notfounds = self._build_entity_ref(response, kb_triples, new_nodes, new_rels)
-                num_notfound_triples += n_notfounds
-            else:
-                entity_refs = None
-
-            if entity_refs:
-                num_nce_instances += 1
-
-            num_lm_instances += 1
+            render = None
 
             # start encoding
             response = self._word_tokenize(" " + response)
             history = [self._word_tokenize(u) for u in history]
-            entities = entity_refs
-            if self.include_render and render_kb is not None:
-                render = self._word_tokenize(" " + render_kb)
-            else:
-                render = None
 
             # # build lm input
             lm_inputs = self._build_dialogue_lm(history, render, response, kb_triples, speaker)
 
             # # build mask refine input
-            if entity_refs:
+            mask_refine_example = None
+            if entities:
                 neighbors, rels, pivots, pivot_fields, labels, label_indices = self._build_from_graph(entities)
                 ordered_entities = sorted(
                     entities.keys(), key=lambda x: (len(x.split()), len(x)), reverse=True
@@ -501,12 +431,22 @@ class OpenDialKGForNPHProcessor(BaseProcessor):
                 lm_example = self._build_lm_from_segments(
                     render, history, kb_triples, response, ordered_entities
                 )
+                mask_refine_example = dict(
+                    mlm_input_ids = mlm_example["input_ids"],
+                    mlm_attention_mask = mlm_example["attention_mask"],
+                    mlm_entity_mask = mlm_example["entity_mask"],
+                    lm_input_ids = lm_example["input_ids"],
+                    lm_attention_mask = lm_example["attention_mask"],
+                    neighbors = neighbors,
+                    rels = rels,
+                    pivots = pivots,
+                    pivot_fields = pivot_fields,
+                    labels = labels,
+                    label_indices = label_indices,
+                )
 
-
-
-
-            # datable("resp_all_vocabs",resp_all_vocabs.tolist())
-
+            datable("lm_inputs",lm_inputs)
+            datable("mask_refine_example",mask_refine_example)
         return DataTableSet(datable)
 
     def process_train(self, data):
@@ -523,13 +463,15 @@ if __name__ == "__main__":
     from cogagent.data.readers.open_dialkg_reader import OpenDialKGReader
     from cogagent.utils.log_utils import init_logger
     logger = init_logger()
-    reader = OpenDialKGReader(raw_data_path="/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/OpenDialKG/raw_data")
+    reader = OpenDialKGReader(raw_data_path="/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/OpenDialKG/raw_data",debug=True)
     train_data,dev_data,test_data = reader.read_all()
     vocab = reader.read_vocab()
 
     # change to roberta-large when running
-    processor = OpenDialKGForNPHProcessor(vocab=vocab,plm='gpt2',mlm='roberta-large ',debug=True)
+    processor = OpenDialKGForNPHProcessor(vocab=vocab,plm='gpt2',mlm='roberta-large',debug=True)
     train_dataset = processor.process_train(train_data)
+    item= train_dataset[5]
+
 
 
 
