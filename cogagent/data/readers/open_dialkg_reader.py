@@ -5,6 +5,8 @@ from cogagent.utils.vocab_utils import Vocabulary
 import json
 from tqdm import tqdm
 from collections import Counter
+from cogagent.data.processors.open_dialkg_processors.graph import NER
+from cogagent.data.processors.open_dialkg_processors.kge import KnowledgeGraphEmbedding
 
 class OpenDialKGReader(BaseReader):
     def __init__(self, raw_data_path,test_mode='seen'):
@@ -47,8 +49,29 @@ class OpenDialKGReader(BaseReader):
     def read_all(self):
         return [self._read_train(),self._read_dev(),self._read_test()]
 
+    def read_vocab(self):
+
+        # ner construction
+        graph_file = os.path.join(self.raw_data_path,"opendialkg_triples.txt")
+        if not os.path.exists(graph_file):
+            graph_file = os.path.join(self.raw_data_path,"original_data/opendialkg_triples.txt")
+            if not os.path.exists(graph_file):
+                raise ValueError("Graph File {} could not be found in {}!".format("opendialkg_triples.txt",raw_data_path))
+        self.ner = NER(self.raw_data_path,graph_file=graph_file)
+
+        # kge construction
+        self.kge = KnowledgeGraphEmbedding(os.path.join(self.raw_data_path,"graph_embedding"),self.train_path,self.dev_path,self.test_path)
+        return {
+            "kge":self.kge,
+            "ner":self.ner,
+        }
+
 if __name__ == "__main__":
+    from cogagent.utils.log_utils import init_logger
+    logger = init_logger()
     reader = OpenDialKGReader(raw_data_path="/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/OpenDialKG/raw_data")
     train_data,dev_data,test_data = reader.read_all()
+    vocab = reader.read_vocab()
+
     # from cogagent import save_pickle
     # save_pickle(train_data,"/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/OpenDialKG/raw_data/train_data.pkl")
