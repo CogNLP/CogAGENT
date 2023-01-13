@@ -12,6 +12,7 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 from collections import OrderedDict
 import re
 import numpy as np
+import torch
 
 def _normalize(text: str) -> str:
     return " ".join(text.split())
@@ -36,6 +37,35 @@ class OpenDialKGForNPHProcessor(BaseProcessor):
         self.include_render = False
         self.exclude_kb = False
         self.max_adjacents = 100
+
+        self.padding = 'longest'
+        self.pad_to_multiple_of = 8
+        self.kg_pad = 0
+        self.mask_pad = 0
+        self.label_pad = -100
+
+        self.fields: Iterable[str] = (
+            "input_ids",
+            "token_type_ids",
+            "attention_mask",
+            "triple_ids",
+            "triple_type_ids",
+            "lm_labels",
+            "subject_ids",
+            "predicate_ids",
+            "object_ids",
+        )
+
+    @property
+    def special_pad_tokens(self) -> Dict[str, int]:
+        return dict(
+            attention_mask=self.mask_pad,
+            lm_labels=self.label_pad,
+            subject_ids=self.kg_pad,
+            predicte_ids=self.kg_pad,
+            object_ids=self.kg_pad,
+        )
+
 
     def _word_tokenize(self, text: str, *, as_string: bool = True) -> Union[str, List[str]]:
 
@@ -388,6 +418,132 @@ class OpenDialKGForNPHProcessor(BaseProcessor):
             attention_mask = lm_attention_masks,
         )
 
+    def _pad3D(self, examples: List[dict], attr: str, E: int, C: int, pad: int = None):
+        padded = np.full((len(examples), E, C), pad or self.kg_pad, dtype=int)
+
+        for i, ex in enumerate(examples):
+            for j, cands in enumerate(ex[attr]):
+                padded[i, j, : len(cands)] = cands
+
+        return torch.from_numpy(padded)
+
+    def _pad2D(self, examples: List[dict], attr: str, E: int, pad: int):
+        padded = np.full((len(examples), E), pad, dtype=int)
+
+        for i, ex in enumerate(examples):
+            labels = ex[attr]
+            padded[i, : len(labels)] = labels
+
+        return torch.from_numpy(padded)
+
+    def _get_pad_token(self, field: str) -> int:
+        pad = self.special_pad_tokens.get(field, None)
+        return self.tokenizer.pad_token_id if pad is None else pad
+
+    def _collate(self, batch):
+        mask_refine_examples = [sample["mask_refine_example"] for sample in batch if sample["mask_refine_example"]]
+        lm_examples = [sample["lm_inputs"] for sample in batch if sample["lm_inputs"]]
+
+        nce_batch,lm_batch = None,None
+
+        if mask_refine_examples:
+            lm_input_ids = self.tokenizer.pad(
+                [{"input_ids": sample["lm_input_ids"]} for sample in mask_refine_examples],
+                padding = self.padding,
+                pad_to_multiple_of = self.pad_to_multiple_of,
+                return_tensors ='pt',
+            )["input_ids"]
+
+            max_ents = max([len(ex["lm_attention_mask"]) for ex in mask_refine_examples])
+            max_seq_l = max([len(m) for ex in mask_refine_examples for m in ex["lm_attention_mask"]])
+            if self.pad_to_multiple_of:
+                max_seq_l = int(self.pad_to_multiple_of * np.ceil(max_seq_l / self.pad_to_multiple_of))
+
+            padded_attention_mask = np.zeros((len(mask_refine_examples), max_ents, max_seq_l), dtype=int)
+            for i, ex in enumerate(mask_refine_examples):
+                for j, m in enumerate(ex["lm_attention_mask"]):
+                    padded_attention_mask[i, j, : len(m)] = m
+
+            # mlm padding
+            max_mlm_l = max([len(ex["mlm_entity_mask"]) for ex in mask_refine_examples])
+            if self.pad_to_multiple_of:
+                max_mlm_l = int(self.pad_to_multiple_of * np.ceil(max_mlm_l / self.pad_to_multiple_of))
+
+            padded_mlm_entity_mask = np.zeros((len(mask_refine_examples), max_mlm_l), dtype=int)
+            for i, ex in enumerate(mask_refine_examples):
+                padded_mlm_entity_mask[i, : len(ex["mlm_entity_mask"])] = ex["mlm_entity_mask"]
+
+            # label padding
+            contains_labels = all(ex["labels"] is not None for ex in mask_refine_examples)
+            if contains_labels:
+                max_label_l = max([len(ex["labels"]) for ex in mask_refine_examples])
+                assert max_label_l == max_ents
+            else:
+                max_label_l = max([len(ex["candidate_ids"]) for ex in mask_refine_examples])
+
+            max_cands = max([len(cands) for ex in mask_refine_examples for cands in ex["candidate_ids"]])
+            padded_candidate_ids = self._pad3D(mask_refine_examples, "candidate_ids", max_label_l, max_cands)
+            padded_candidate_rels = self._pad3D(mask_refine_examples, "candidate_rels", max_label_l, max_cands)
+            padded_pivots = self._pad2D(mask_refine_examples, "pivot_ids", max_label_l, self.kg_pad)
+            padded_pivot_fields = None
+
+            mlm_batch = self.mlm_tokenizer.pad(
+                [{"input_ids":ex["mlm_input_ids"],"attention_mask":ex["mlm_attention_mask"]} for ex in mask_refine_examples],
+                padding=self.padding,
+                pad_to_multiple_of=self.pad_to_multiple_of,
+                return_attention_mask=True,
+                return_tensors="pt",
+            )
+            padded_labels = (
+                self._pad2D(mask_refine_examples, "labels", max_label_l, self.label_pad) if contains_labels else None
+            )
+            padded_label_indices = self._pad2D(mask_refine_examples, "label_indices", max_label_l, self.label_pad) if contains_labels else None
+
+            nce_batch = dict(
+                mlm_inputs = {**mlm_batch},
+                mlm_entity_mask = padded_mlm_entity_mask if padded_mlm_entity_mask is not None else None,
+                lm_input_ids = lm_input_ids,
+                lm_attention_masks = torch.from_numpy(padded_attention_mask),
+                candidate_ids = padded_candidate_ids,
+                padded_candidate_rels = padded_candidate_rels,
+                pivot_ids = padded_pivots,
+                pivot_fields = padded_pivot_fields,
+                labels = padded_labels,
+                label_indices = padded_label_indices,
+            )
+
+        if lm_examples:
+            batch = lm_examples
+            bsz = len(batch)
+            padded_batch = {}
+            # Go over each data point in the batch and pad each example.
+            for name in self.fields:
+                if any(name not in x for x in batch):
+                    continue
+
+                max_l = max(len(x[name]) for x in batch)
+                if self.pad_to_multiple_of:
+                    max_l = int(self.pad_to_multiple_of * np.ceil(max_l / self.pad_to_multiple_of))
+
+                pad_token = self._get_pad_token(name)
+
+                # Fill the batches with padding tokens
+                padded_field = np.full((bsz, max_l), pad_token, dtype=np.int64)
+
+                # batch is a list of dictionaries
+                for bidx, x in enumerate(batch):
+                    padded_field[bidx, : len(x[name])] = x[name]
+
+                padded_batch[name] = torch.from_numpy(padded_field)
+
+            lm_batch = padded_batch
+
+
+        return dict(
+            nce_batch = nce_batch,
+            lm_batch = lm_batch,
+        )
+
 
     def _process(self, data,is_training=True):
         datable = DataTable()
@@ -437,9 +593,9 @@ class OpenDialKGForNPHProcessor(BaseProcessor):
                     mlm_entity_mask = mlm_example["entity_mask"],
                     lm_input_ids = lm_example["input_ids"],
                     lm_attention_mask = lm_example["attention_mask"],
-                    neighbors = neighbors,
-                    rels = rels,
-                    pivots = pivots,
+                    candidate_ids = neighbors,
+                    candidate_rels = rels,
+                    pivot_ids = pivots,
                     pivot_fields = pivot_fields,
                     labels = labels,
                     label_indices = label_indices,
@@ -464,14 +620,20 @@ if __name__ == "__main__":
     from cogagent.utils.log_utils import init_logger
     logger = init_logger()
     reader = OpenDialKGReader(raw_data_path="/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/OpenDialKG/raw_data",debug=True)
-    train_data,dev_data,test_data = reader.read_all()
+    # train_data,dev_data,test_data = reader.read_all()
+    train_data = reader._read_train()
     vocab = reader.read_vocab()
 
     # change to roberta-large when running
     processor = OpenDialKGForNPHProcessor(vocab=vocab,plm='gpt2',mlm='roberta-large',debug=True)
     train_dataset = processor.process_train(train_data)
-    item= train_dataset[5]
 
+    # test collate function
+    from torch.utils.data import DataLoader
+    dataloader = DataLoader(dataset=train_dataset, batch_size=8, collate_fn=processor._collate)
+    sample = next(iter(dataloader))
+    from cogagent.utils.train_utils import move_dict_value_to_device
+    move_dict_value_to_device(sample,device=torch.device("cuda:5"))
 
 
 
