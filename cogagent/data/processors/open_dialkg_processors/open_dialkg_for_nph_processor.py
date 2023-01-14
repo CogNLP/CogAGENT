@@ -13,6 +13,7 @@ from collections import OrderedDict
 import re
 import numpy as np
 import torch
+from cogagent.utils.log_utils import logger
 
 def _normalize(text: str) -> str:
     return " ".join(text.split())
@@ -29,6 +30,7 @@ class OpenDialKGForNPHProcessor(BaseProcessor):
         num_added_tokens = self.tokenizer.add_special_tokens(
             ATTR_TO_SPECIAL_TOKEN
         )
+        vocab["new_num_tokens"] = len(self.tokenizer)
         self.special_tokens = SpecialTokens(*self.tokenizer.convert_tokens_to_ids(SPECIAL_TOKENS))
         self.mlm_special_tokens = SpecialTokens(*self.mlm_tokenizer.convert_tokens_to_ids(SPECIAL_TOKENS))
 
@@ -501,11 +503,11 @@ class OpenDialKGForNPHProcessor(BaseProcessor):
 
             nce_batch = dict(
                 mlm_inputs = {**mlm_batch},
-                mlm_entity_mask = padded_mlm_entity_mask if padded_mlm_entity_mask is not None else None,
+                mlm_entity_mask = torch.from_numpy(padded_mlm_entity_mask) if padded_mlm_entity_mask is not None else None,
                 lm_input_ids = lm_input_ids,
                 lm_attention_masks = torch.from_numpy(padded_attention_mask),
                 candidate_ids = padded_candidate_ids,
-                padded_candidate_rels = padded_candidate_rels,
+                candidate_rels = padded_candidate_rels,
                 pivot_ids = padded_pivots,
                 pivot_fields = padded_pivot_fields,
                 labels = padded_labels,
