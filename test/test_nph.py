@@ -4,22 +4,23 @@ from cogagent.data.readers.open_dialkg_reader import OpenDialKGReader
 from cogagent.data.processors.open_dialkg_processors.open_dialkg_for_nph_processor import OpenDialKGForNPHProcessor
 from cogagent import init_cogagent,Trainer,BaseClassificationMetric
 from cogagent.models.neural_path_hunter_model import MaskRefineModel
+from cogagent.core.metric.nph_metric import BaseNPHMetric
 
 device, output_path = init_cogagent(
     device_id=8,
     output_path="/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/OpenDialKG/experimental_result",
-    folder_tag="debug_nph",
+    folder_tag="full_nph_data",
 )
 
 reader = OpenDialKGReader(
-    raw_data_path="/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/OpenDialKG/raw_data", debug=True)
+    raw_data_path="/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/OpenDialKG/raw_data", debug=False)
 train_data,dev_data,test_data = reader.read_all()
 vocab = reader.read_vocab()
 
 plm_name = 'gpt2'
 mlm_name = 'roberta-large'
 
-processor = OpenDialKGForNPHProcessor(vocab=vocab, plm=plm_name, mlm=mlm_name, debug=True)
+processor = OpenDialKGForNPHProcessor(vocab=vocab, plm=plm_name, mlm=mlm_name, debug=False)
 train_dataset = processor.process_train(train_data)
 dev_dataset = processor.process_dev(dev_data)
 # test_dataset = processor.process_test(test_data)
@@ -38,13 +39,13 @@ optimizer_grouped_parameters = [
     },
 ]
 optimizer = torch.optim.AdamW(optimizer_grouped_parameters,lr=6.25e-5,eps=1e-8)
-metric = BaseClassificationMetric(mode="binary")
+metric = BaseNPHMetric()
 
 trainer = Trainer(model,
                   train_dataset,
                   dev_data=dev_dataset,
-                  n_epochs=20,
-                  batch_size=8,
+                  n_epochs=10,
+                  batch_size=4,
                   loss=None,
                   optimizer=optimizer,
                   scheduler=None,
@@ -56,7 +57,7 @@ trainer = Trainer(model,
                   num_workers=5,
                   print_every=None,
                   scheduler_steps=None,
-                  validate_steps=2000,
+                  validate_steps=1200,
                   save_steps=None,
                   output_path=output_path,
                   grad_norm=1,

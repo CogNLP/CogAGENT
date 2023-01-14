@@ -8,6 +8,50 @@ from typing import Dict, List, Optional, Union
 from cogagent.models.base_model import BaseModel
 from transformers import AutoModelForCausalLM,AutoConfig,AutoModelForMaskedLM
 
+@dataclass
+class MaskRefineOutput:
+    logits: List[torch.Tensor]
+    selected_cands: torch.Tensor
+    topK_cands: torch.Tensor
+    topK_rels: torch.Tensor
+    topK_pivots: Optional[torch.Tensor] = None
+    topK_pivot_fields: Optional[torch.Tensor] = None
+    losses: Optional[torch.Tensor] = None
+    accuracies: Optional[torch.Tensor] = None
+    l_mr: Optional[torch.Tensor] = None
+    l_mrr: Optional[torch.Tensor] = None
+    l_hits1: Optional[torch.Tensor] = None
+    l_hits3: Optional[torch.Tensor] = None
+    l_hits10: Optional[torch.Tensor] = None
+
+    @property
+    def loss(self):
+        return torch.mean(self.losses) if self.losses is not None else None
+
+    @property
+    def accuracy(self):
+        return torch.mean(self.accuracies) if self.accuracies is not None else None
+
+    @property
+    def mean_reciprocal_rank(self):
+        return torch.mean(self.l_mrr) if self.l_mrr is not None else None
+
+    @property
+    def mean_rank(self):
+        return torch.mean(self.l_mr) if self.l_mr is not None else None
+
+    @property
+    def hits1(self):
+        return torch.mean(self.l_hits1) if self.l_hits1 is not None else None
+
+    @property
+    def hits3(self):
+        return torch.mean(self.l_hits3) if self.l_hits3 is not None else None
+
+    @property
+    def hits10(self):
+        return torch.mean(self.l_hits10) if self.l_hits10 is not None else None
+
 def broadcast(src: torch.Tensor, other: torch.Tensor, dim: int):
     if dim < 0:
         dim = other.dim() + dim
@@ -154,7 +198,6 @@ class MaskRefineModel(BaseModel):
     def loss(self, batch, loss_function):
         nce_batch,lm_batch = batch["nce_batch"],batch["lm_batch"]
 
-
         loss = 0
         if lm_batch is not None:
             lm_batch_selected = {k:v for k,v in lm_batch.items()
@@ -163,14 +206,44 @@ class MaskRefineModel(BaseModel):
                                  }
             lm_batch_selected["labels"] = lm_batch_selected.pop("lm_labels")
             lm_output = self.model(**lm_batch_selected)
-            ppl = torch.clamp(torch.exp(lm_output.loss), max=100, min=0)
+            # ppl = torch.clamp(torch.exp(lm_output.loss), max=100, min=0)
             loss += lm_output.loss
 
         if nce_batch is not None:
-            nce_loss = self.forward(nce_batch)
-            loss += nce_loss
+            nce_output = self.forward(nce_batch)
+            loss += nce_output.loss
 
         return loss
+
+    def evaluate(self, batch, metric_function):
+        nce_batch, lm_batch = batch["nce_batch"], batch["lm_batch"]
+        val_output = dict()
+        if lm_batch:
+            lm_batch_selected = {k:v for k,v in lm_batch.items()
+                                 if k not in ("triple_ids", "triple_type_ids")
+                                 and (v is not None)
+                                 and (k != 'lm_labels')
+                                 }
+            lm_output = self.model(**lm_batch_selected)
+            lm_logits_flat_shifted = lm_output.logits[..., :-1, :].contiguous().view(-1, lm_output.logits.size(-1))
+            lm_labels_flat_shifted = lm_batch["lm_labels"][..., 1:].contiguous().view(-1)
+            loss_fn = torch.nn.CrossEntropyLoss(reduction="sum")
+            val_loss = loss_fn(lm_logits_flat_shifted, lm_labels_flat_shifted)
+            val_output["val_loss"] = val_loss.detach().cpu()
+
+            num_tokens = (lm_batch["lm_labels"] > 0).int().sum().detach().cpu()
+            val_output["num_tokens"] = num_tokens.detach().cpu()
+        if nce_batch:
+            nce_output = self.forward(nce_batch)
+            val_output["nce_loss"] = nce_output.loss.detach().cpu()
+            val_output["nce_accuracy"] = nce_output.accuracy.detach().cpu()
+            val_output["mean_reciprocal_rank"] = nce_output.mean_reciprocal_rank.detach().cpu()
+            val_output["mean_rank"] = nce_output.mean_rank.detach().cpu()
+            val_output["hits1"] = nce_output.hits1.detach().cpu()
+            val_output["hits3"] = nce_output.hits3.detach().cpu()
+            val_output["hits10"] = nce_output.hits10.detach().cpu()
+
+        metric_function.evaluate(val_output)
 
 
     def forward(self,batch):
@@ -314,22 +387,22 @@ class MaskRefineModel(BaseModel):
 
             all_logits.append(scores)
 
-        return torch.mean(torch.vstack(nce_losses)) if nce_losses is not None else None
-        # return MaskRefineOutput(
-        #     all_logits,
-        #     torch.vstack(selected_cands).T,
-        #     torch.vstack(topK_cands).transpose(1, 0),
-        #     torch.vstack(topK_rels).transpose(1, 0),
-        #     torch.vstack(topK_pivots).transpose(1, 0) if topK_pivots else None,
-        #     torch.vstack(topK_pivot_fields).transpose(1, 0) if topK_pivot_fields else None,
-        #     torch.vstack(nce_losses) if nce_losses else None,
-        #     torch.vstack(nce_accuracies) if nce_accuracies else None,
-        #     torch.vstack(l_mr) if l_mr else None,
-        #     torch.vstack(l_mrr) if l_mrr else None,
-        #     torch.vstack(l_hits1) if l_hits1 else None,
-        #     torch.vstack(l_hits3) if l_hits3 else None,
-        #     torch.vstack(l_hits10) if l_hits10 else None,
-        # )
+        # return torch.mean(torch.vstack(nce_losses)) if nce_losses is not None else None
+        return MaskRefineOutput(
+            all_logits,
+            torch.vstack(selected_cands).T,
+            torch.vstack(topK_cands).transpose(1, 0),
+            torch.vstack(topK_rels).transpose(1, 0),
+            torch.vstack(topK_pivots).transpose(1, 0) if topK_pivots else None,
+            torch.vstack(topK_pivot_fields).transpose(1, 0) if topK_pivot_fields else None,
+            torch.vstack(nce_losses) if nce_losses else None,
+            torch.vstack(nce_accuracies) if nce_accuracies else None,
+            torch.vstack(l_mr) if l_mr else None,
+            torch.vstack(l_mrr) if l_mrr else None,
+            torch.vstack(l_hits1) if l_hits1 else None,
+            torch.vstack(l_hits3) if l_hits3 else None,
+            torch.vstack(l_hits10) if l_hits10 else None,
+        )
 
     def compute_ranks(self, scores, current_labels):
         argsort = torch.argsort(scores, dim=1, descending=True)
