@@ -9,7 +9,7 @@ from cogagent.core.metric.nph_metric import BaseNPHMetric
 device, output_path = init_cogagent(
     device_id=8,
     output_path="/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/OpenDialKG/experimental_result",
-    folder_tag="full_nph_data",
+    folder_tag="run_and_save",
 )
 
 reader = OpenDialKGReader(
@@ -57,7 +57,9 @@ trainer = Trainer(model,
                   num_workers=5,
                   print_every=None,
                   scheduler_steps=None,
-                  validate_steps=1200,
+                  validate_steps=1000,
+                  save_by_metric="lm_ppl",
+                  metric_mode='min',
                   save_steps=None,
                   output_path=output_path,
                   grad_norm=1,

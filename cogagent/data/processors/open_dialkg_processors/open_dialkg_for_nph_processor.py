@@ -58,6 +58,10 @@ class OpenDialKGForNPHProcessor(BaseProcessor):
             "object_ids",
         )
 
+        if self.debug:
+            self.debug_info = []
+            self.neightbour_count = []
+
     @property
     def special_pad_tokens(self) -> Dict[str, int]:
         return dict(
@@ -602,6 +606,16 @@ class OpenDialKGForNPHProcessor(BaseProcessor):
                     labels = labels,
                     label_indices = label_indices,
                 )
+                if self.debug:
+                    self.debug_info.append(dict(
+                        mlm_input_ids=self.mlm_tokenizer.decode(mlm_example["input_ids"]),
+                        lm_input_ids=self.tokenizer.decode(lm_example["input_ids"]),
+                        candidates=[[(self.kge.id2node[node_id],self.kge.id2rel[rel_id]) for node_id,rel_id in zip(entity_ids,rel_ids)]
+                                           for entity_ids,rel_ids in zip(neighbors,rels)],
+                        pivot_ids=[self.kge.id2node[node_id] for node_id in pivots],
+                        label_indices=label_indices,
+                    ))
+                    self.neightbour_count.extend([len(candidate) for candidate in neighbors])
 
             datable("lm_inputs",lm_inputs)
             datable("mask_refine_example",mask_refine_example)
@@ -630,12 +644,12 @@ if __name__ == "__main__":
     processor = OpenDialKGForNPHProcessor(vocab=vocab,plm='gpt2',mlm='roberta-large',debug=True)
     train_dataset = processor.process_train(train_data)
 
-    # test collate function
-    from torch.utils.data import DataLoader
-    dataloader = DataLoader(dataset=train_dataset, batch_size=8, collate_fn=processor._collate)
-    sample = next(iter(dataloader))
-    from cogagent.utils.train_utils import move_dict_value_to_device
-    move_dict_value_to_device(sample,device=torch.device("cuda:5"))
+    # # test collate function
+    # from torch.utils.data import DataLoader
+    # dataloader = DataLoader(dataset=train_dataset, batch_size=8, collate_fn=processor._collate)
+    # sample = next(iter(dataloader))
+    # from cogagent.utils.train_utils import move_dict_value_to_device
+    # move_dict_value_to_device(sample,device=torch.device("cuda:5"))
 
 
 
