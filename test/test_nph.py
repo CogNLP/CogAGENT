@@ -7,9 +7,9 @@ from cogagent.models.neural_path_hunter_model import MaskRefineModel
 from cogagent.core.metric.nph_metric import BaseNPHMetric
 
 device, output_path = init_cogagent(
-    device_id=8,
+    device_id=2,
     output_path="/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/OpenDialKG/experimental_result",
-    folder_tag="run_and_save",
+    folder_tag="run_DialoGPT",
 )
 
 reader = OpenDialKGReader(
@@ -17,8 +17,12 @@ reader = OpenDialKGReader(
 train_data,dev_data,test_data = reader.read_all()
 vocab = reader.read_vocab()
 
-plm_name = 'gpt2'
+plm_name = 'microsoft/DialoGPT-medium'
 mlm_name = 'roberta-large'
+
+# from cogagent import save_pickle
+# save_pickle(vocab,"/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/OpenDialKG/raw_data/toolkit/vocab.pkl")
+# print("Saving Finished!")
 
 processor = OpenDialKGForNPHProcessor(vocab=vocab, plm=plm_name, mlm=mlm_name, debug=False)
 train_dataset = processor.process_train(train_data)
