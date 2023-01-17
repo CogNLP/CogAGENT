@@ -188,7 +188,7 @@ class OpenDialKGForNPHProcessor(BaseProcessor):
             return self.special_tokens.speaker1
 
     def _build_dialogue_lm(
-        self, history: List[str], render: Optional[str], response: str, kb_triples: List[Triple], speaker: int
+        self, history: List[str], render: Optional[str], response: str, kb_triples: List[Triple], speaker: int,is_generation: bool = False
     ) -> Dict[str, List[Any]]:
         encoded_history = [self.tokenizer.encode(h, add_special_tokens=False) for h in history]
         encoded_response = self.tokenizer.encode(response, add_special_tokens=False)
@@ -215,7 +215,7 @@ class OpenDialKGForNPHProcessor(BaseProcessor):
             encoded_history,
             speaker,
             encoded_response,
-            with_eos=True,
+            with_eos=not is_generation,
         )
 
 
