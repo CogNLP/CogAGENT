@@ -6,6 +6,7 @@ from cogagent.utils.log_utils import logger
 from cogagent import load_model,load_pickle
 from cogagent.models.neural_path_hunter_model import MaskRefineModel
 from torch import Tensor
+from collections import OrderedDict
 
 from typing import Dict, Iterable, Optional, List
 
@@ -56,6 +57,8 @@ class KGGroundedConversationAgent(BaseToolkit):
         self.top_k = 0
         self.top_p = 0.9
         self.num_return_sequences = 1
+        self.max_history = 3
+        self.use_ents_as_hallucination = False
 
         # decode ner result
         self.label_map = NERLabel.map()
@@ -63,135 +66,204 @@ class KGGroundedConversationAgent(BaseToolkit):
 
     def get_user_input(self,):
         if self.debug:
-            input_msg = "Can you tell me who starred in movie the Avengers?"
-            print(">>User:{}".format(input_msg))
+            input_msg = "Do you know like Iron Man?"
+            print("User>>{}".format(input_msg))
         else:
-            input_msg = input(">>User:")
+            input_msg = input("User>>")
         return input_msg
 
+    def build_lm_input(self,input_msg,chat_history,kb_triples):
+        chat_history.append(input_msg)
+        chat_history = chat_history[-self.max_history : ]
+        speaker = self.processor.special_tokens.speaker1
+        history = [self.processor._word_tokenize(u) for u in chat_history]
+        render = None
+        response = " "
+        lm_inputs = self.processor._build_dialogue_lm(history, render, response, kb_triples, speaker,
+                                                      is_generation=True)
+        batch = dict()
+        for key, value in lm_inputs.items():
+            batch[key] = torch.tensor(value).view(1, -1).to(self.device)
+        return batch
+
+    def generate_ids(self,batch):
+        outputs = generate_no_beam_search(
+            self.model.model,
+            batch["input_ids"],
+            token_type_ids=batch["token_type_ids"],
+            attention_mask=batch["attention_mask"],
+            max_length=self.max_length,
+            min_length=self.min_length,
+            do_sample=self.do_sample,
+            temperature=self.temperature,
+            top_k=self.top_k,
+            top_p=self.top_p,
+            bos_token_id=self.tokenizer.bos_token_id,
+            pad_token_id=self.tokenizer.pad_token_id,
+            eos_token_id=self.tokenizer.eos_token_id,
+            num_return_sequences=self.num_return_sequences,
+            use_cache=True,
+        )
+        generated_ids = (
+            outputs["generated_ids"].reshape(1, self.num_return_sequences, -1).detach().cpu().tolist()
+        )
+        return generated_ids
+
+    def detect_halluc(self,halluc_batch,halluc_input_lengths,generated_ids):
+        halluc_output = self.halluc_classifier(**halluc_batch)
+        halluc_preds = torch.argmax(halluc_output.logits, dim=-1).reshape(
+            1, self.num_return_sequences, -1
+        )
+        halluc_prediction = halluc_preds[0, :, halluc_input_lengths[0]:].detach().cpu().tolist()
+        generated = generated_ids[0]
+
+        # decode hallucination result:
+        generated_response = [self.tokenizer.decode(gen, skip_special_tokens=True).strip() for gen in generated]
+        tokenized_gens = [
+            self.halluc_tokenizer.tokenize(" " + " ".join([t.text for t in self.nlp(g)]))
+            for g in generated_response
+        ]
+        detected_hallucs = []
+        for j, pred in enumerate(halluc_prediction):
+            contiguous_seqs = []
+            pred_label = []
+            for r, p in enumerate(pred[: len(tokenized_gens[j])]):
+                p = self.label_map[p]
+                if p.startswith("B"):
+                    if pred_label:
+                        contiguous_seqs.append([tokenized_gens[j][k] for k in pred_label])
+                    pred_label = [r]
+                elif p.startswith("I"):
+                    if pred_label:
+                        pred_label.append(r)
+                else:
+                    if pred_label:
+                        contiguous_seqs.append([tokenized_gens[j][k] for k in pred_label])
+                    pred_label = []
+
+            if pred_label:
+                contiguous_seqs.append([tokenized_gens[j][k] for k in pred_label])
+
+            hallucs = []
+            for seq in contiguous_seqs:
+                halluc_ent = self.halluc_tokenizer.convert_tokens_to_string(seq).strip()
+                if halluc_ent and halluc_ent in generated_response[j]:
+                    hallucs.append(halluc_ent)
+            detected_hallucs.append(hallucs)
+
+        hallucination_output = [
+            [self.label_map[p] for p in preds[: len(tokenized_gens[j])]] for preds in halluc_prediction
+        ]
+        hallucination_preds = detected_hallucs
+        return hallucination_output,hallucination_preds,generated_response
+
+    def build_mask_refine_input(self,hallucination_preds,generated_response,kb_triples,history):
+        ref_triple = kb_triples[0]
+        pivots = {}
+        pivots["subject"] = ref_triple.subject
+        pivots["object"] = ref_triple.object
+
+        hallucination_predictions = hallucination_preds
+
+        if not hallucination_predictions or self.use_ents_as_hallucination:
+            hallucination_predictions = []
+            for generated_response in generated_response:
+                hallucination_predictions.append([ent for ent, _, _ in self.ner.extract(generated_response)])
+
+        entity_refs_list = []
+
+        for j, (generated_response, halluc_preds) in enumerate(
+                zip(generated_response, hallucination_predictions)
+        ):
+            if not halluc_preds:
+                continue
+
+            generated_response = _normalize(generated_response)
+
+            response_tokens = self.processor._word_tokenize(generated_response, as_string=False)
+            acceptable_preds = []
+            for halluc_ent in halluc_preds:
+                ent_tokens = self.processor._word_tokenize(halluc_ent, as_string=False)
+                for t in range(len(response_tokens)):
+                    if ent_tokens == response_tokens[t: t + len(ent_tokens)]:
+                        acceptable_preds.append(halluc_ent)
+                        break
+
+            if not acceptable_preds:
+                continue
+
+
+            entity_refs = OrderedDict()
+            for halluc_ent in halluc_preds:
+                if not halluc_ent:
+                    continue
+                entity_refs[halluc_ent] = (pivots, ref_triple.predicate)
+
+            entity_refs_list.append(entity_refs)
+
+        mask_refine_example = None
+        # entity_refs_list has only one element as there's only one sample in the batch
+        if entity_refs_list:
+            entities = entity_refs_list[0]
+            neighbors, rels, pivots, pivot_fields, labels, label_indices = self.processor._build_from_graph_inference(entities)
+            ordered_entities = sorted(
+                entities.keys(), key=lambda x: (len(x.split()), len(x)), reverse=True
+            )
+            entities = list(entities.keys())
+            ordered_mask = [entities.index(ent) for ent in ordered_entities]
+            response = generated_response
+            mlm_example = self.processor._build_mlm_from_segments(
+                None, history, kb_triples, response, ordered_entities, ordered_mask
+            )
+
+            lm_example = self.processor._build_lm_from_segments(
+                None, history, kb_triples, response, ordered_entities
+            )
+            mask_refine_example = dict(
+                mlm_input_ids=mlm_example["input_ids"],
+                mlm_attention_mask=mlm_example["attention_mask"],
+                mlm_entity_mask=mlm_example["entity_mask"],
+                lm_input_ids=lm_example["input_ids"],
+                lm_attention_mask=lm_example["attention_mask"],
+                candidate_ids=neighbors,
+                candidate_rels=rels,
+                pivot_ids=pivots,
+                pivot_fields=pivot_fields,
+                labels=labels,
+                label_indices=label_indices,
+            )
+
+
+        return mask_refine_example
+
     def run(self,dialogue_turns=5):
-        chat_history = [""]
+        chat_history = []
         for i in range(dialogue_turns):
             input_msg = self.get_user_input()
             kb_triples = self.get_triples(input_msg)
 
             # build input
-            speaker = self.processor.special_tokens.speaker2
-            history = [self.processor._word_tokenize(u) for u in chat_history]
-            render = None
-            response = " "
-            lm_inputs = self.processor._build_dialogue_lm(history, render, response, kb_triples, speaker,is_generation=True)
-            batch = dict()
-            for key,value in lm_inputs.items():
-                batch[key] = torch.tensor(value).view(1,-1).to(self.device)
+            batch = self.build_lm_input(input_msg,chat_history,kb_triples)
 
             # generate output
-            outputs = generate_no_beam_search(
-                self.model.model,
-                batch["input_ids"],
-                token_type_ids=batch["token_type_ids"],
-                attention_mask=batch["attention_mask"],
-                max_length=self.max_length,
-                min_length=self.min_length,
-                do_sample=self.do_sample,
-                temperature=self.temperature,
-                top_k=self.top_k,
-                top_p=self.top_p,
-                bos_token_id=self.tokenizer.bos_token_id,
-                pad_token_id=self.tokenizer.pad_token_id,
-                eos_token_id=self.tokenizer.eos_token_id,
-                num_return_sequences=self.num_return_sequences,
-                use_cache=True,
-            )
-            generated_ids = (
-                outputs["generated_ids"].reshape(1, self.num_return_sequences, -1).detach().cpu().tolist()
-            )
+            generated_ids = self.generate_ids(batch)
 
             # build hallucination input
-            self.build_halluc_input(batch,history,kb_triples)
-            halluc_input_lengths = (batch["halluc_input_ids"] != self.halluc_tokenizer.pad_token_id).int().sum(-1)
-
-            batch_generated_resps = []
-            for i in range(1):
-                halluc_input_ids = batch["halluc_input_ids"][i, : halluc_input_lengths[i]].detach().cpu().tolist()
-                for j in range(self.num_return_sequences):
-                    resp = " " + " ".join(
-                        [
-                            t.text
-                            for t in self.nlp(
-                            _normalize(
-                                self.tokenizer.decode(generated_ids[i][j], skip_special_tokens=True)
-                            )
-                        )
-                        ]
-                    )
-                    batch_generated_resps.append(
-                        halluc_input_ids
-                        + self.halluc_tokenizer.encode(resp, add_special_tokens=False)
-                        + [self.halluc_tokenizer.eos_token_id]
-                    )
-
-            halluc_batch = self.halluc_tokenizer.pad(
-                dict(input_ids=batch_generated_resps),
-                padding="longest",
-                max_length=0,
-                return_tensors="pt",
-                return_attention_mask=True,
-            )
-            halluc_batch = {k: v.to(self.device) for k, v in halluc_batch.items()}
+            halluc_batch,halluc_input_lengths = self.build_halluc_input(batch,chat_history,kb_triples,generated_ids)
 
             # running hallucination classifier
-            halluc_output = self.halluc_classifier(**halluc_batch)
-            halluc_preds = torch.argmax(halluc_output.logits, dim=-1).reshape(
-                1, self.num_return_sequences, -1
-            )
-            halluc_prediction = halluc_preds[0,:,halluc_input_lengths[0]:].detach().cpu().tolist()
-            generated = generated_ids[0]
+            hallucination_output,hallucination_preds,generated_response = self.detect_halluc(halluc_batch,halluc_input_lengths,generated_ids)
 
-            # decode hallucination result:
-            generated_response = [self.tokenizer.decode(gen, skip_special_tokens=True).strip() for gen in generated]
-            tokenized_gens = [
-                self.halluc_tokenizer.tokenize(" " + " ".join([t.text for t in self.nlp(g)]))
-                for g in generated_response
-            ]
-            detected_hallucs = []
-            for j, pred in enumerate(halluc_prediction):
-                contiguous_seqs = []
-                pred_label = []
-                for r, p in enumerate(pred[: len(tokenized_gens[j])]):
-                    p = self.label_map[p]
-                    if p.startswith("B"):
-                        if pred_label:
-                            contiguous_seqs.append([tokenized_gens[j][k] for k in pred_label])
-                        pred_label = [r]
-                    elif p.startswith("I"):
-                        if pred_label:
-                            pred_label.append(r)
-                    else:
-                        if pred_label:
-                            contiguous_seqs.append([tokenized_gens[j][k] for k in pred_label])
-                        pred_label = []
+            # build mask_refine input
+            mask_refine_batch = self.build_mask_refine_input(hallucination_preds,generated_response,kb_triples,chat_history)
 
-                if pred_label:
-                    contiguous_seqs.append([tokenized_gens[j][k] for k in pred_label])
-
-                hallucs = []
-                for seq in contiguous_seqs:
-                    halluc_ent = self.halluc_tokenizer.convert_tokens_to_string(seq).strip()
-                    if halluc_ent and halluc_ent in generated_response[j]:
-                        hallucs.append(halluc_ent)
-                detected_hallucs.append(hallucs)
-
-            hallucination_output = [
-                [self.label_map[p] for p in preds[: len(tokenized_gens[j])]] for preds in halluc_prediction
-            ]
-            hallucination_preds = detected_hallucs
-            print("Agent>>",generated_response[0])
-            chat_history.append(generated_response[0])
-            chat_history = chat_history[-3:]
+            # print("!")
+            # print("Agent>>",generated_response[0])
+            # chat_history.append(generated_response[0])
 
 
-    def build_halluc_input(self,item_dict:dict,history,kb_triples):
+
+    def build_halluc_input(self,item_dict:dict,history,kb_triples,generated_ids):
         tokens = [self.halluc_tokenizer.cls_token_id]
         for h in history:
             tokens.extend(self.halluc_tokenizer.encode(h, add_special_tokens=False))
@@ -203,6 +275,39 @@ class KGGroundedConversationAgent(BaseToolkit):
         else:
             tokens.append(self.halluc_tokenizer.sep_token_id)
         item_dict["halluc_input_ids"] = torch.tensor(tokens).view(1,-1).to(self.device)
+
+        batch = item_dict
+        halluc_input_lengths = (batch["halluc_input_ids"] != self.halluc_tokenizer.pad_token_id).int().sum(-1)
+
+        batch_generated_resps = []
+        for i in range(1):
+            halluc_input_ids = batch["halluc_input_ids"][i, : halluc_input_lengths[i]].detach().cpu().tolist()
+            for j in range(self.num_return_sequences):
+                resp = " " + " ".join(
+                    [
+                        t.text
+                        for t in self.nlp(
+                        _normalize(
+                            self.tokenizer.decode(generated_ids[i][j], skip_special_tokens=True)
+                        )
+                    )
+                    ]
+                )
+                batch_generated_resps.append(
+                    halluc_input_ids
+                    + self.halluc_tokenizer.encode(resp, add_special_tokens=False)
+                    + [self.halluc_tokenizer.eos_token_id]
+                )
+
+        halluc_batch = self.halluc_tokenizer.pad(
+            dict(input_ids=batch_generated_resps),
+            padding="longest",
+            max_length=0,
+            return_tensors="pt",
+            return_attention_mask=True,
+        )
+        halluc_batch = {k: v.to(self.device) for k, v in halluc_batch.items()}
+        return halluc_batch,halluc_input_lengths
 
     def get_triples(self,msg):
         """
@@ -218,7 +323,7 @@ class KGGroundedConversationAgent(BaseToolkit):
         for _,kg_ent in input_msg_ents:
             ent_neighbours = self.ner.knowledge_graph[kg_ent]
             ent_neighbours = {key: item for key, item in ent_neighbours.items()}
-            if len(triples) > num_triple:
+            if len(triples) >= num_triple:
                 break
             ents = random.sample(list(ent_neighbours.keys()),random.randint(1,num_triple - len(triples)))
             for ent in ents:
@@ -634,8 +739,8 @@ if __name__ == '__main__':
     agent = KGGroundedConversationAgent(
         model_path='/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/OpenDialKG/experimental_result/run_and_save--2023-01-16--22-20-38.80/best_model/checkpoint-17000/models.pt',
         vocabulary_path='/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/OpenDialKG/raw_data/toolkit/vocab.pkl',
-        device = torch.device("cuda:2"),
-        debug=False
+        device = torch.device("cuda:3"),
+        debug=True
     )
     agent.run()
 

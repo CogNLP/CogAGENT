@@ -10,6 +10,7 @@ from cogagent.utils.constant.opendialkg_constants import SPECIAL_TOKENS,ATTR_TO_
 from cogagent.data.processors.open_dialkg_processors.kge import Triple,EncodedText,TokenizedText
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 from collections import OrderedDict
+from itertools import takewhile
 import re
 import numpy as np
 import torch
@@ -218,6 +219,62 @@ class OpenDialKGForNPHProcessor(BaseProcessor):
             with_eos=not is_generation,
         )
 
+
+    def _build_from_graph_inference(
+        self, entities: Dict[str, Tuple[Dict[str, str], str]]
+    ) -> Tuple[List[Any], List[Any], List[List[int]], List[List[int]], Optional[List[int]], Optional[List[int]]]:
+        candidates = []
+        candidate_rels = []
+        all_pivots = []
+        all_pivot_fields = []
+
+        for ent, (pivot_ents, pivot_rel) in entities.items():
+            neighbors, rels = [], []
+            pivots = []
+            pivot_fields = []
+            for pivot_field, pivot_ent in pivot_ents.items():
+                pivot_id = self.kge.encode_node(pivot_ent)
+                pivots.append(pivot_id)
+                pivot_fields.append(0 if pivot_field == "subject" else 1)
+
+                ent_neighbors = {}
+                for object, edges in self.ner.knowledge_graph[pivot_ent].items():
+                    if not self.kge.contains_node(object):
+                        continue
+
+                    object_id = self.kge.encode_node(object)
+
+                    if pivot_rel in edges:
+                        rel = pivot_rel
+                    else:
+                        rel = next(iter(edges.keys()))
+
+                    if not self.kge.contains_rel(rel):
+                        for e in takewhile(lambda x: True, iter(edges.keys())):
+                            if self.kge.contains_rel(e):
+                                rel = e
+                                break
+                            else:
+                                rel = None
+
+                        if not rel:
+                            continue
+
+                    rel_id = self.kge.encode_rel(rel)
+                    ent_neighbors[object_id] = rel_id
+
+                nbr_list = [nbr for nbr, _ in ent_neighbors.items()]
+                if self.max_adjacents > 0 and len(nbr_list) > self.max_adjacents:
+                    nbr_list = np.random.choice(nbr_list, size=self.max_adjacents, replace=False).tolist()
+
+                neighbors.append(nbr_list)
+                rels.append([ent_neighbors[nbr] for nbr in nbr_list])
+            all_pivots.append(pivots)
+            all_pivot_fields.append(pivot_fields)
+            candidates.append(neighbors)
+            candidate_rels.append(rels)
+
+        return candidates, candidate_rels, all_pivots, all_pivot_fields, None, None
 
     def _build_from_graph(
         self, entities: Dict[str, Tuple[str, str, int, str]]
