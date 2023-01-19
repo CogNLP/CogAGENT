@@ -7,6 +7,7 @@ from cogagent import load_model,load_pickle
 from cogagent.models.neural_path_hunter_model import MaskRefineModel
 from torch import Tensor
 from collections import OrderedDict
+from cogagent.utils.train_utils import move_dict_value_to_device
 
 from typing import Dict, Iterable, Optional, List
 
@@ -41,7 +42,7 @@ class KGGroundedConversationAgent(BaseToolkit):
         self.halluc_classifier.to(self.device)
 
         self.kge, self.ner = self.vocab["kge"],self.vocab["ner"]
-        plm_name = 'gpt2'
+        plm_name = 'microsoft/DialoGPT-medium'
         mlm_name = 'roberta-large'
         self.processor = OpenDialKGForNPHProcessor(vocab=self.vocab, plm=plm_name, mlm=mlm_name, debug=self.debug)
         self.tokenizer = self.processor.tokenizer
@@ -66,7 +67,7 @@ class KGGroundedConversationAgent(BaseToolkit):
 
     def get_user_input(self,):
         if self.debug:
-            input_msg = "Do you know like Iron Man?"
+            input_msg = "What is the Lion pf the King?"
             print("User>>{}".format(input_msg))
         else:
             input_msg = input("User>>")
@@ -233,8 +234,37 @@ class KGGroundedConversationAgent(BaseToolkit):
                 label_indices=label_indices,
             )
 
+        collate_batch = self.processor._collate([{"mask_refine_example":mask_refine_example,"lm_inputs":None}],multiple_pivots_allowed=True)["nce_batch"]
+        if collate_batch is not None:
+            move_dict_value_to_device(collate_batch,self.device)
+        return collate_batch,entity_refs_list
 
-        return mask_refine_example
+    def get_refined_response(self,nce_output,entities_list,generated_response):
+        entities = entities_list[0]
+        nce_output = {key:value[0] for key,value in nce_output.items()}
+        top_cands, top_rels, top_pivots, top_pivot_fields = nce_output["topK_cands"], nce_output["topK_rels"], nce_output["topK_pivot_ids"], nce_output["topK_pivot_fields"]
+        refinements_list = []
+        for j, (halluc_ent, (pivots, pivot_rel)) in enumerate(entities.items()):
+            replacements = [
+                self.kge.decode_node(ent_id) for ent_id in top_cands[j] if ent_id != self.kge.pad_id
+            ]
+
+            src_triples = []
+            for ent_id, rel_id, pivot_id, pivot_field in zip(
+                    top_cands[j], top_rels[j], top_pivots[j], top_pivot_fields[j]
+            ):
+                if ent_id != self.kge.pad_id:
+                    ent = self.kge.decode_node(ent_id)
+                    rel = self.kge.decode_rel(rel_id)
+                    pivot = self.kge.decode_node(pivot_id)
+                    if pivot_field == 0:
+                        src_triples.append((pivot, rel, ent))
+                    else:
+                        src_triples.append((ent, rel, pivot))
+
+            refinements = [generated_response[0].replace(halluc_ent, repl) for repl in replacements]
+            refinements_list.append(refinements)
+        return [elem for sublist in refinements_list for elem in sublist]
 
     def run(self,dialogue_turns=5):
         chat_history = []
@@ -254,12 +284,18 @@ class KGGroundedConversationAgent(BaseToolkit):
             # running hallucination classifier
             hallucination_output,hallucination_preds,generated_response = self.detect_halluc(halluc_batch,halluc_input_lengths,generated_ids)
 
-            # build mask_refine input
-            mask_refine_batch = self.build_mask_refine_input(hallucination_preds,generated_response,kb_triples,chat_history)
+            if kb_triples:
+                # build mask_refine input
+                mask_refine_batch,entity_list = self.build_mask_refine_input(hallucination_preds,generated_response,kb_triples,chat_history)
 
-            # print("!")
-            # print("Agent>>",generated_response[0])
-            # chat_history.append(generated_response[0])
+                if mask_refine_batch is not None:
+                    nce_output = self.model.predict(mask_refine_batch)
+                    refined_responses = self.get_refined_response(nce_output,entity_list,generated_response)
+                    print("Agent(Original)>>", generated_response[0])
+                    print("Agent>>There are {} refined responses.".format(len(refined_responses)))
+                    print("Agent>>Random choose one:{}".format(random.choice(refined_responses)))
+                    continue
+            print("Agent>>",generated_response[0])
 
 
 
@@ -325,7 +361,7 @@ class KGGroundedConversationAgent(BaseToolkit):
             ent_neighbours = {key: item for key, item in ent_neighbours.items()}
             if len(triples) >= num_triple:
                 break
-            ents = random.sample(list(ent_neighbours.keys()),random.randint(1,num_triple - len(triples)))
+            ents = random.sample(list(ent_neighbours.keys()),random.randint(1,max(num_triple - len(triples),len(list(ent_neighbours.keys())))))
             for ent in ents:
                 rel = random.choice(list(ent_neighbours[ent].keys()))
                 if self.kge.contains_node(ent) and self.kge.contains_rel(rel):
@@ -737,10 +773,10 @@ class NERLabel(Enum):
 if __name__ == '__main__':
     print("Hello World!")
     agent = KGGroundedConversationAgent(
-        model_path='/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/OpenDialKG/experimental_result/run_and_save--2023-01-16--22-20-38.80/best_model/checkpoint-17000/models.pt',
+        model_path='/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/OpenDialKG/experimental_result/run_DialoGPT--2023-01-18--08-52-12.66/best_model/checkpoint-21000/models.pt',
         vocabulary_path='/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/OpenDialKG/raw_data/toolkit/vocab.pkl',
-        device = torch.device("cuda:3"),
-        debug=True
+        device = torch.device("cuda:2"),
+        debug=False
     )
     agent.run()
 

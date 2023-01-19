@@ -195,6 +195,16 @@ class MaskRefineModel(BaseModel):
 
         self.topK = topK
 
+    def predict(self, nce_batch):
+        nce_output = self.forward(nce_batch)
+        nce_output = {
+            "topK_cands": nce_output.topK_cands.detach().cpu().tolist(),
+            "topK_rels": nce_output.topK_rels.detach().cpu().tolist(),
+            "topK_pivot_ids": nce_output.topK_pivots.detach().cpu().tolist(),
+            "topK_pivot_fields": nce_output.topK_pivot_fields.detach().cpu().tolist(),
+        }
+        return nce_output
+
     def loss(self, batch, loss_function):
         nce_batch,lm_batch = batch["nce_batch"],batch["lm_batch"]
 
@@ -360,12 +370,19 @@ class MaskRefineModel(BaseModel):
 
             if pivot_fields is not None:
                 topK_pivot_fields.append(
-                    torch.gather(pivot_fields[:, j], dim=-1, index=topK_score_indices // N).unsqueeze(0)
+                    torch.gather(pivot_fields[:, j], dim=-1, index=torch.div(topK_score_indices, N,rounding_mode='trunc')).unsqueeze(0)
                 )
 
                 topK_pivots.append(
-                    torch.gather(pivot_ids[:, j], dim=-1, index=topK_score_indices // N).unsqueeze(0)
+                    torch.gather(pivot_ids[:, j], dim=-1, index=torch.div(topK_score_indices, N,rounding_mode='trunc')).unsqueeze(0)
                 )
+                # topK_pivot_fields.append(
+                #     torch.gather(pivot_fields[:, j], dim=-1, index=topK_score_indices // N).unsqueeze(0)
+                # )
+                #
+                # topK_pivots.append(
+                #     torch.gather(pivot_ids[:, j], dim=-1, index=topK_score_indices // N).unsqueeze(0)
+                # )
 
             if label_indices is not None:
                 current_labels = label_indices[:, j]

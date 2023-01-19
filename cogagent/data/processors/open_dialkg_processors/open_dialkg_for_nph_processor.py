@@ -481,6 +481,17 @@ class OpenDialKGForNPHProcessor(BaseProcessor):
             attention_mask = lm_attention_masks,
         )
 
+    def _pad4D(self, examples: List[dict], attr: str, E: int, P: int, C: int):
+        padded = np.full((len(examples), E, P, C), self.kg_pad, dtype=np.int)
+
+        for i, ex in enumerate(examples):
+            for j, pivot_cands in enumerate(ex[attr]):
+                for k, cands in enumerate(pivot_cands):
+                    padded[i, j, k, : len(cands)] = cands
+
+        return torch.from_numpy(padded)
+
+
     def _pad3D(self, examples: List[dict], attr: str, E: int, C: int, pad: int = None):
         padded = np.full((len(examples), E, C), pad or self.kg_pad, dtype=int)
 
@@ -503,7 +514,7 @@ class OpenDialKGForNPHProcessor(BaseProcessor):
         pad = self.special_pad_tokens.get(field, None)
         return self.tokenizer.pad_token_id if pad is None else pad
 
-    def _collate(self, batch):
+    def _collate(self, batch,multiple_pivots_allowed=False):
         mask_refine_examples = [sample["mask_refine_example"] for sample in batch if sample["mask_refine_example"]]
         lm_examples = [sample["lm_inputs"] for sample in batch if sample["lm_inputs"]]
 
@@ -544,11 +555,33 @@ class OpenDialKGForNPHProcessor(BaseProcessor):
             else:
                 max_label_l = max([len(ex["candidate_ids"]) for ex in mask_refine_examples])
 
-            max_cands = max([len(cands) for ex in mask_refine_examples for cands in ex["candidate_ids"]])
-            padded_candidate_ids = self._pad3D(mask_refine_examples, "candidate_ids", max_label_l, max_cands)
-            padded_candidate_rels = self._pad3D(mask_refine_examples, "candidate_rels", max_label_l, max_cands)
-            padded_pivots = self._pad2D(mask_refine_examples, "pivot_ids", max_label_l, self.kg_pad)
-            padded_pivot_fields = None
+            if multiple_pivots_allowed:
+                max_pivots = max([len(pivots) for ex in mask_refine_examples for pivots in ex["pivot_ids"]])
+                max_cands = max(
+                    [
+                        len(cands)
+                        for ex in mask_refine_examples
+                        for pivot_cands in ex["candidate_ids"]
+                        for cands in pivot_cands
+                    ]
+                )
+                padded_candidate_ids = self._pad4D(
+                    mask_refine_examples, "candidate_ids", max_label_l, max_pivots, max_cands
+                )
+                padded_candidate_rels = self._pad4D(
+                    mask_refine_examples, "candidate_rels", max_label_l, max_pivots, max_cands
+                )
+                padded_pivots = self._pad3D(mask_refine_examples, "pivot_ids", max_label_l, max_pivots)
+                padded_pivot_fields = self._pad3D(
+                    mask_refine_examples, "pivot_fields", max_label_l, max_pivots, pad=-1
+                )
+            else:
+                max_cands = max([len(cands) for ex in mask_refine_examples for cands in ex["candidate_ids"]])
+                padded_candidate_ids = self._pad3D(mask_refine_examples, "candidate_ids", max_label_l, max_cands)
+                padded_candidate_rels = self._pad3D(mask_refine_examples, "candidate_rels", max_label_l, max_cands)
+                padded_pivots = self._pad2D(mask_refine_examples, "pivot_ids", max_label_l, self.kg_pad)
+                padded_pivot_fields = None
+
 
             mlm_batch = self.mlm_tokenizer.pad(
                 [{"input_ids":ex["mlm_input_ids"],"attention_mask":ex["mlm_attention_mask"]} for ex in mask_refine_examples],
@@ -593,7 +626,7 @@ class OpenDialKGForNPHProcessor(BaseProcessor):
                 # Fill the batches with padding tokens
                 padded_field = np.full((bsz, max_l), pad_token, dtype=np.int64)
 
-                # batch is a list of dictionaries
+                # batch is a list of dictionaries1
                 for bidx, x in enumerate(batch):
                     padded_field[bidx, : len(x[name])] = x[name]
 
@@ -641,9 +674,12 @@ class OpenDialKGForNPHProcessor(BaseProcessor):
                 ordered_mask = [entities.index(ent) for ent in ordered_entities]
 
                 if self.mlm_tokenizer is not None:
-                    mlm_example = self._build_mlm_from_segments(
-                        render, history, kb_triples, response, ordered_entities, ordered_mask
-                    )
+                    try:
+                        mlm_example = self._build_mlm_from_segments(
+                            render, history, kb_triples, response, ordered_entities, ordered_mask
+                        )
+                    except:
+                        mlm_example = None
                 else:
                     mlm_example = None
 
@@ -701,10 +737,10 @@ if __name__ == "__main__":
     processor = OpenDialKGForNPHProcessor(vocab=vocab,plm='gpt2',mlm='roberta-large',debug=True)
     train_dataset = processor.process_train(train_data)
 
-    # # test collate function
-    # from torch.utils.data import DataLoader
-    # dataloader = DataLoader(dataset=train_dataset, batch_size=8, collate_fn=processor._collate)
-    # sample = next(iter(dataloader))
+    # test collate function
+    from torch.utils.data import DataLoader
+    dataloader = DataLoader(dataset=train_dataset, batch_size=8, collate_fn=processor._collate)
+    sample = next(iter(dataloader))
     # from cogagent.utils.train_utils import move_dict_value_to_device
     # move_dict_value_to_device(sample,device=torch.device("cuda:5"))
 
