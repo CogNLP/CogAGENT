@@ -366,55 +366,57 @@ class LedDialog(BaseModel):
         metric_function.evaluate(pred=distances)
 
     def predict(self, batch):
-        preds = self.forward(batch)
+        self.eval()
+        with torch.no_grad():
+            preds = self.forward(batch)
 
-        batch_size = len(preds)
-        B, num_maps, C, H, W = batch['maps'].size()
-        H_factor = H / self.ds_height
-        W_factor = W / self.ds_width
+            batch_size = len(preds)
+            B, num_maps, C, H, W = batch['maps'].size()
+            H_factor = H / self.ds_height
+            W_factor = W / self.ds_width
 
-        # #################
-        # batch_target = batch['target'].view(B * num_maps, H, W)
-        #
-        # batch_target = (
-        #     nn.functional.interpolate(
-        #         batch_target.unsqueeze(1),
-        #         (self.ds_height, self.ds_width),
-        #         mode="bilinear",
-        #     )
-        #         .squeeze(1)
-        #         .float()
-        # )
-        # batch_target = batch_target.view(
-        #     B, num_maps, batch_target.size()[-2], batch_target.size()[-1]
-        # )
-        # #################
+            # #################
+            # batch_target = batch['target'].view(B * num_maps, H, W)
+            #
+            # batch_target = (
+            #     nn.functional.interpolate(
+            #         batch_target.unsqueeze(1),
+            #         (self.ds_height, self.ds_width),
+            #         mode="bilinear",
+            #     )
+            #         .squeeze(1)
+            #         .float()
+            # )
+            # batch_target = batch_target.view(
+            #     B, num_maps, batch_target.size()[-2], batch_target.size()[-1]
+            # )
+            # #################
 
-        result_list = []
-        for i in range(batch_size):
-            result = np.unravel_index(preds[i].detach().cpu().argmax(), preds[i].size())
-            floor, w_loc, h_loc = result
-            h_loc = int(H_factor * h_loc)
-            w_loc = int(W_factor * w_loc)
-            plt.imshow(batch['img_list'][i][floor])
-            plt.plot(h_loc, w_loc, "ro")
-            plt.show()
+            result_list = []
+            for i in range(batch_size):
+                result = np.unravel_index(preds[i].detach().cpu().argmax(), preds[i].size())
+                floor, w_loc, h_loc = result
+                h_loc = int(H_factor * h_loc)
+                w_loc = int(W_factor * w_loc)
+                plt.imshow(batch['img_list'][i][floor])
+                plt.plot(h_loc, w_loc, "ro")
+                plt.show()
 
-            ##########################
-            # label=np.unravel_index(batch_target[i].detach().cpu().argmax(), batch_target[i].size())
-            # label_floor, label_w_loc, label_h_loc = label
-            # label_h_loc = int(H_factor * label_h_loc)
-            # label_w_loc = int(W_factor * label_w_loc)
-            # plt.imshow(batch['img_list'][i][label_floor])
-            # plt.plot(label_h_loc,label_w_loc, "ro",color='lime')
-            # plt.show()
-            ##########################
+                ##########################
+                # label=np.unravel_index(batch_target[i].detach().cpu().argmax(), batch_target[i].size())
+                # label_floor, label_w_loc, label_h_loc = label
+                # label_h_loc = int(H_factor * label_h_loc)
+                # label_w_loc = int(W_factor * label_w_loc)
+                # plt.imshow(batch['img_list'][i][label_floor])
+                # plt.plot(label_h_loc,label_w_loc, "ro",color='lime')
+                # plt.show()
+                ##########################
 
-            result_dict = {}
-            result_dict["h_loc"] = h_loc
-            result_dict["w_loc"] = w_loc
-            result_dict["floor"] = floor
-            result_dict["img"] = batch['img_list'][i][floor]
-            result_list.append(result_dict)
+                result_dict = {}
+                result_dict["h_loc"] = h_loc
+                result_dict["w_loc"] = w_loc
+                result_dict["floor"] = floor
+                result_dict["img"] = batch['img_list'][i][floor]
+                result_list.append(result_dict)
 
         return preds, result_list
