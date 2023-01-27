@@ -114,7 +114,6 @@ class WayReader(BaseReader):
         for data_obj in data:
             episode_ids.append(data_obj["episodeId"])
             scan_names.append(data_obj["scanName"])
-            # 加上token，使对话历史连成一句话
             dialogs.append(self._add_tokens(data_obj["dialogArray"]))
             level = 0
             if mode != "test":
