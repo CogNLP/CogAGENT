@@ -227,19 +227,19 @@ class DialogVQAToolkit(BaseToolkit):
             if pred_prob_list[ii] > maxval:
                 maxval, pred_answer = pred_prob_list[ii], pred_answer_list[ii]
 
-        # prompt_sentence = caption_i + ".\n" + question + ".\n" + pred_answer + ".\n\n" + "Summarize the above words in one sentence"
-        # response_sentence = openai.Completion.create(
-        #     engine='davinci',
-        #     prompt=prompt_sentence,
-        #     max_tokens=30,
-        #     temperature=0,
-        #     top_p=1.0,
-        #     frequency_penalty=0.0,
-        #     presence_penalty=0.0,
-        # )
-        # pred_sentence = response_sentence['choices'][0]["text"].split("\n")[1]
+        prompt_sentence = question + pred_answer+"." + "This is because"
+        response_sentence = openai.Completion.create(
+            engine='davinci',
+            prompt=prompt_sentence,
+            max_tokens=30,
+            temperature=0,
+            top_p=1.0,
+            frequency_penalty=0.0,
+            presence_penalty=0.0,
+        )
+        reason = response_sentence['choices'][0]["text"]
 
-        # infer_dict["pred_sentence"] = pred_sentence
+        infer_dict["reason"] = reason
         infer_dict["pred_answer"] = pred_answer
         infer_dict["caption"] = caption_i
         return infer_dict
