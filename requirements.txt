@@ -8,3 +8,5 @@ nltk
 cotk==0.0.1  # used for glove word vector loading
 networkx==3.0
 spacy==3.4.4
+hydra
+faiss-cpu
