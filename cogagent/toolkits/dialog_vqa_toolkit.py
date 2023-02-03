@@ -227,7 +227,7 @@ class DialogVQAToolkit(BaseToolkit):
             if pred_prob_list[ii] > maxval:
                 maxval, pred_answer = pred_prob_list[ii], pred_answer_list[ii]
 
-        prompt_sentence = question + pred_answer+"." + "This is because"
+        prompt_sentence = caption_i + '.' +question + pred_answer+"." + "This is because"
         response_sentence = openai.Completion.create(
             engine='davinci',
             prompt=prompt_sentence,
