@@ -15,7 +15,7 @@ st.markdown('''
 :green[**_A KNOWLEDGE-ENHANCED TEXT REPRESENTATION TOOLKIT FOR NATURAL LANGUAGE UNDERSTANDING_**]
 ''')
 
-st.header("VQA")
+st.header("Visual Question Answering")
 
 st.warning('''
 **This module is mainly used to talk about the pictures uploaded by users, which can conduct multiple rounds of dialogue.
@@ -67,6 +67,7 @@ while(1):
                     }
                 if question == 'What job often ride it?':
                     # st.json(result)
+                    # st.image()
                     st.success(result['pred_text']+'The picture shows '+result['caption']+result['reason']) 
                     i = i + 1
             else:

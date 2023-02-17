@@ -1,3 +1,4 @@
+import json
 import streamlit as st
 from PIL import Image
 from io import BytesIO
@@ -15,13 +16,25 @@ st.markdown('''
 :green[**_A KNOWLEDGE-ENHANCED TEXT REPRESENTATION TOOLKIT FOR NATURAL LANGUAGE UNDERSTANDING_**]
 ''')
 
-st.header("Sticker Dialogue")
+st.header("Embodied Learning Dialogue")
 
 st.warning('''
 **This module is for the dialogue of the pictures selected by the user, which can carry out multiple rounds of dialogue. 
 These pictures are provided by us.This module will return the marked picture. Write Exit to stop.**
 ''')
-   
+# 选择某一栋楼并展示该栋楼的图片
+building_path='/data/zhaojingxuan/zjxcode/CogAgent/datapath/embodied_dialog/way/raw_data/floorplans/pix2meshDistance.json'
+with open(building_path,"rb") as f:
+    buildings = json.load(f)
+# st.write(buildings)  
+building = st.select_slider("Pick a building",buildings.keys()) 
+# names = [""]
+floorplans_path = '/data/zhaojingxuan/zjxcode/CogAgent/datapath/embodied_dialog/way/raw_data/floorplans/'
+for name in buildings.keys():
+    if name == building:
+        for enum, f in enumerate(buildings[building]):
+            st.image("{}floor_{}/{}_{}.png".format(floorplans_path, f, name, f),width=400)  
+# submit = st.button('SUBMIT')
 l = 10  
 # 最多10轮对话    
 i = 0
@@ -32,6 +45,7 @@ c1 = st.container()
 c2 = st.container()
 e1 = c2.empty()
 e2 = c2.empty()
+
 
 while(1):
     choice = e1.selectbox('Question',['Select an example or input text','I am near the dining table,the carpet is red.','Exit'],key = k)
@@ -53,6 +67,11 @@ while(1):
                 # st.subheader("User")
                 # if image_file is not None:
                 #     st.image(load_an_image(image_file), width=250)
+                # if submit:
+                for name in buildings.keys():
+                    if name == building:
+                        for enum, f in enumerate(buildings[building]):
+                            st.image("{}floor_{}/{}_{}.png".format(floorplans_path, f, name, f),width=350)
             st.info(question)
 
         with col2:
