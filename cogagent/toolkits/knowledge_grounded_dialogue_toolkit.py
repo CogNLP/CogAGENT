@@ -55,6 +55,38 @@ class KnowledgeGroundedConversationAgent(BaseToolkit):
         self.type2type[float] = torch.float
         self.type2type[bool] = torch.bool
 
+    def get_topic_candidates(self,k=5):
+        return random.sample(self.topics,k)
+
+    def get_knowledge_from_topic(self,topic):
+        assert topic in self.topics
+        return self.search_knowledge(topic)
+
+    def get_response(self,user_utterance,chat_history,knowledge_list):
+        if not chat_history:
+            post = [self.line2id(self.f(user_utterance).split())[:self.max_post_length]]
+        else:
+            assert len(chat_history) % 2 + 1 # the chat history mush be odd number 奇数
+            post = [self.line2id(self.f(chat_history[-2]).split())[:self.max_post_length]] + \
+                   [self.line2id(self.f(chat_history[-1]).split())[:self.max_post_length]] + \
+                   [self.line2id(self.f(user_utterance).split())[:self.max_post_length]]
+
+        padded_wiki, wiki_length, wiki_num = knowledge_list
+
+        curr_post, curr_post_length = [elem for elem in pad_post(post)]
+        input_batch = self.convert_to_sensor({
+            "curr_post": curr_post[0].tolist(),
+            "curr_post_length": curr_post_length[0].tolist(),
+            "padded_wiki": padded_wiki.tolist(),
+            "wiki_length": wiki_length,
+            "wiki_num": wiki_num,
+            "i": len(chat_history)//2,
+        })
+        move_dict_value_to_device(input_batch, self.device)
+        gen_resp = self.model.predict(input_batch)
+        gen_resp_str = self.recover_sentence(gen_resp[:-1])
+        return gen_resp_str
+
     def run(self):
         topic = self.choose_topic()
         # topic = "Tofu"
@@ -194,9 +226,17 @@ if __name__ == '__main__':
         model_path='/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/wow/experimental_result/run_diffks_wow_lr1e-4--2022-11-16--01-01-39.05/best_model/checkpoint-376000/models.pt',
         vocabulary_path='/data/hongbang/CogAGENT/datapath/knowledge_grounded_dialogue/wow/cache/wow_vocab.pkl',
         device=torch.device("cuda:0"),
-        debug=False,
+        debug=True,
         )
-    agent.run()
+    # agent.run()
+    knowledge_list = agent.get_knowledge_from_topic("Parisian café")
+    user_utterance = "Do you know anything about Parisian café?"
+    chat_history = [
+        'Do you know anything about Parisian café?',
+        'i know that parisian cafés serve as a center of social and culinary life in paris '
+    ]
+    response = agent.get_response(user_utterance,[],knowledge_list)
+    print(response)
 
     # topic = agent.choose_topic()
     # print(topic)
