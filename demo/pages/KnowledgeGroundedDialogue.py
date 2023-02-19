@@ -4,7 +4,6 @@ from cogagent.utils.log_utils import logger
 from cogagent.toolkits.knowledge_grounded_dialogue_toolkit import KnowledgeGroundedConversationAgent
 import torch
 
-
 # # *******************************Construct Web Pages*******************************
 
 st.title('CogAgent')
@@ -14,6 +13,8 @@ st.markdown('''
 ''')
 st.header("Knowledge Grounded Dialogue")
 st.sidebar.markdown("Knowledge Grounded Dialogue")
+
+
 # st.warning('''
 # **This module is a dialogue based on unstructured text knowledge, which can conduct multiple rounds of dialogue. Write Exit to stop.**
 # ''')
@@ -33,6 +34,7 @@ def load_knowledge_grounded_agent():
     logger.info("Loading Finished.")
     return agent
 
+
 agent = load_knowledge_grounded_agent()
 
 
@@ -42,15 +44,20 @@ agent = load_knowledge_grounded_agent()
 def reset_dialogue():
     del st.session_state["generated"]
     del st.session_state["past"]
-    del st.session_state["knowledge_list"]
-    del st.session_state["topic"]
+    if 'knowledge_list' in st.session_state:
+        del st.session_state["knowledge_list"]
+    if 'topic' in st.session_state:
+        del st.session_state["topic"]
     st.session_state["user_input"] = ""
+
+
+def set_dialogue_topic(topic):
+    st.session_state["topic"] = topic
 
 
 user_input = st.text_input("Talk to CogAgent!", key='user_input')
 
 btn = st.button("Restart Dialogue", key='reset', on_click=reset_dialogue)
-
 
 if 'generated' not in st.session_state:
     st.session_state['generated'] = []
@@ -58,24 +65,25 @@ if 'past' not in st.session_state:
     st.session_state['past'] = []
 
 # generate response:
-if 'topic' not in st.session_state:
-    topic = st.selectbox(
-        'Select one topic you would like to talk.',
-        agent.get_topic_candidates())
-    # topic = st.radio(
+if 'topic' not in st.session_state and not user_input:
+    # topic = st.selectbox(
     #     'Select one topic you would like to talk.',
-    #     agent.get_topic_candidates())
+    #     agent.get_topic_candidates(),key='topic')
+    topic = st.radio(
+        'Select one topic you would like to talk.',
+        ["Choosing one topic from below."]+agent.get_topic_candidates(),key='topic')
     # topic = st.text_input("Input the topic")
-    submit = st.button("Submit")
-    if submit:
-        st.session_state["topic"] = topic
+    # submit = st.button("Submit")
+    # if submit:
+    #     st.session_state["topic"] = topic
 
-if 'topic' in st.session_state:
-    st.write("Dialogue Topic:",st.session_state.topic)
+if 'topic' in st.session_state and st.session_state["topic"] != 'Choosing one topic from below.':
+    st.write("Dialogue Topic:", st.session_state.topic)
+    st.session_state['knowledge_list'] = agent.get_knowledge_from_topic(topic=st.session_state["topic"])
 
-if 'knowledge_list' not in st.session_state:
-    if "topic" in st.session_state:
-        st.session_state['knowledge_list'] = agent.get_knowledge_from_topic(topic=st.session_state["topic"])
+# if 'knowledge_list' not in st.session_state:
+#     if "topic" in st.session_state:
+#         st.session_state['knowledge_list'] = agent.get_knowledge_from_topic(topic=st.session_state["topic"])
 
 if st.session_state["user_input"]:
     # st.session_state["user_input"]
@@ -94,4 +102,3 @@ if st.session_state['generated']:
     for i in range(len(st.session_state['generated']) - 1, -1, -1):
         message(st.session_state["generated"][i], key=str(i))
         message(st.session_state['past'][i], is_user=True, key=str(i) + '_user')
-
