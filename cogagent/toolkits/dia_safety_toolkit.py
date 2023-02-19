@@ -1,3 +1,5 @@
+import os
+import numpy as np
 from cogagent.toolkits.base_toolkit import BaseToolkit
 from cogagent.data.processors.sst2_processors.sst2_processor import text_classification_for_sst2
 from cogagent.models.base_text_classification_model import BaseTextClassificationModel
@@ -10,7 +12,7 @@ import torch.nn.functional as F
 from transformers import AutoTokenizer
 
 class DialogeSafetyDetectionToolkit(BaseToolkit):
-    def __init__(self,plm_name,model_path,device):
+    def __init__(self,plm_name,classifier_path,device):
         super(DialogeSafetyDetectionToolkit, self).__init__()
 
         label_vocab = Vocabulary()
@@ -24,10 +26,20 @@ class DialogeSafetyDetectionToolkit(BaseToolkit):
         self.tokenizer = AutoTokenizer.from_pretrained(plm_name)
         self.device = device
 
-        self.plm = PlmAutoModel(plm_name)
-        self.model = BaseTextClassificationModel(plm=self.plm,vocab={"label_vocab":label_vocab})
-        load_model(self.model,model_path)
-        self.model.to(self.device)
+        self.classifiers = {}
+        self.categories = ['agreement', 'expertise', 'offend','bias','risk']
+        for category in self.categories:
+            plm = PlmAutoModel(plm_name)
+            model = BaseTextClassificationModel(plm=plm, vocab={"label_vocab": label_vocab})
+            model_path = os.path.join(classifier_path,"model_"+category+".pt")
+            load_model(model, model_path)
+            model.to(device)
+            self.classifiers[category] = model
+
+        # self.plm = PlmAutoModel(plm_name)
+        # self.model = BaseTextClassificationModel(plm=self.plm,vocab={"label_vocab":label_vocab})
+        # load_model(self.model,model_path)
+        # self.model.to(self.device)
 
         self.type2type = {}
         self.type2type[int] = torch.long
@@ -36,7 +48,15 @@ class DialogeSafetyDetectionToolkit(BaseToolkit):
 
         self.max_token_len = 128
 
-    def run(self,context,response):
+    def single_category_run(self,context,response,category):
+        """
+        run a single category safety detection
+        :param context: user input
+        :param response: agent response
+        :param category: which classifier to use
+        :return: logits (safe_prob,unsafe_prob,NA_prob) NA:not applicable
+        """
+        assert category in self.categories
         tokenized_data = self.tokenizer.encode_plus(text=context,
                                                     text_pair=response,
                                                     padding="max_length",
@@ -47,9 +67,22 @@ class DialogeSafetyDetectionToolkit(BaseToolkit):
         input_dict = self.convert_to_sensor(tokenized_data)
         move_dict_value_to_device(input_dict,self.device)
         with torch.no_grad():
-            pred = self.model.forward(input_dict)
+            pred = self.classifiers[category].forward(input_dict)
             logits = F.softmax(pred, dim=1).cpu().numpy()
         return logits
+
+    def run(self,context,response):
+        results = {}
+        for category in self.categories:
+            results[category] = self.single_category_run(context,response,category)
+        logits = np.stack([v.squeeze() for k,v in results.items()],axis=0)
+        index = np.argmax(logits,axis=1)  # (5,)
+        safe = np.sum(index == 1) == 0 # all the label is not unsafe!
+
+        # choose the max probs among the unsafe predictions
+        category = self.categories[np.where(index == 1)[0][np.argmax(logits[index==1,1])]] if not safe else 'safe'
+        return safe,category
+
 
     def convert_to_sensor(self,dict_data):
         """
@@ -68,16 +101,19 @@ class DialogeSafetyDetectionToolkit(BaseToolkit):
 if __name__ == '__main__':
     toolkit = DialogeSafetyDetectionToolkit(
         plm_name='roberta-base',
-        model_path='/data/hongbang/CogAGENT/datapath/dialogue_safety/DiaSafety/experiment/train_agreement--2023-02-19--06-04-08.48/best_model/checkpoint-2700/models.pt',
+        classifier_path='/data/hongbang/CogAGENT/datapath/dialogue_safety/DiaSafety/raw_data/classifiers',
         device=torch.device("cuda:1"),
     )
-    context = "I'm a huge fan of this nutritionally balanced dish, and I don't think vegans are strong enough."
+    context = "I think Vegans are hypocritical"
     response = "Yeah."
-    logits = toolkit.run(context,response)
+    safe,category = toolkit.run(context,response)
+    print("Safety:",safe,"  Category:",category)
+    print("End")
+
     # sentence = "Downald trump is not doing well recently."
     # label = toolkit.run(sentence)
     # print("label:",label)
-    from detoxify import Detoxify
-    results = Detoxify('unbiased').predict(["Vegetarians eat that stuff, it's definitely not strong."])
+    # from detoxify import Detoxify
+    # results = Detoxify('unbiased').predict(["Vegetarians eat that stuff, it's definitely not strong."])
 
 
