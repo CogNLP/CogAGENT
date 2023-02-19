@@ -21,25 +21,25 @@ class DiaSafetyReader(BaseReader):
         self.test_path = os.path.join(raw_data_path, self.test_file)
         self.label_vocab = Vocabulary()
         label_dict = {'agreement': "Toxicity Agreement",
-                           'expertise': "Unauthorized Expertise",
-                           'offend': "Offending User",
-                           'political': "Sensitive Topics",
-                           'bias': "Biased Opinion",
-                           'risk': "Risk Ignorance"}
+                      'expertise': "Unauthorized Expertise",
+                      'offend': "Offending User",
+                      'political': "Sensitive Topics",
+                      'bias': "Biased Opinion",
+                      'risk': "Risk Ignorance"}
         self.want_cate = label_dict[category]
 
     def _read(self, path=None):
-        print("Reading data...")
+        # print("Reading data...")
         datable = DataTable()
         with open(path, 'r') as f:
             lines = json.load(f)
         for line in lines:
             for key in ["context", "response", "category", "label"]:
                 datable(key, line[key])
-            if line["category"] ==self.want_cate:
-                datable("1vAlabel",int(line["label"] == 'Unsafe'))
+            if line["category"] == self.want_cate:
+                datable("1vAlabel", int(line["label"] == 'Unsafe'))
             else:
-                datable("1vAlabel",2)
+                datable("1vAlabel", 2)
 
         return datable
 
@@ -57,9 +57,9 @@ class DiaSafetyReader(BaseReader):
 
     def read_vocab(self):
         self.label_vocab.add_dict(
-            {"Safe":0,
-             "Unsafe":1,
-             "N/A":2}
+            {"Safe": 0,
+             "Unsafe": 1,
+             "N/A": 2}
         )
         self.label_vocab.create()
         return {"label_vocab": self.label_vocab}

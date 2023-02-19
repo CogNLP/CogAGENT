@@ -9,7 +9,7 @@ from transformers import AutoTokenizer
 transformers.logging.set_verbosity_error()  # set transformers logging level
 
 
-class DiaSafetyForClassify(BaseProcessor):
+class DiaSafetyForClassifyProcessor(BaseProcessor):
     def __init__(self, plm, max_token_len, vocab,debug=False):
         super().__init__(debug)
         self.plm = plm
@@ -26,6 +26,7 @@ class DiaSafetyForClassify(BaseProcessor):
                                                         text_pair=response,
                                                         padding="max_length",
                                                         add_special_tokens=True,
+                                                        truncation=True,
                                                         max_length=self.max_token_len)
             datable("input_ids", tokenized_data["input_ids"])
             datable("attention_mask", tokenized_data["attention_mask"])
@@ -49,7 +50,7 @@ if __name__ == "__main__":
     train_data, dev_data, test_data = reader.read_all()
     vocab = reader.read_vocab()
 
-    processor = DiaSafetyForClassify(plm="roberta-base", max_token_len=128, vocab=vocab,debug=False)
+    processor = DiaSafetyForClassifyProcessor(plm="roberta-base", max_token_len=128, vocab=vocab,debug=False)
     train_dataset = processor.process_train(train_data)
     dev_dataset = processor.process_dev(dev_data)
     test_dataset = processor.process_test(test_data)
