@@ -9,3 +9,12 @@
 
     opt["model_file"] = 'D:/code/ParlAI-main/ParlAI/projects/image_chat/transresnet_multimodal/model/model'
     存放模型的位置,看根据实际情况修改
+
+3.使用方法
+(1) 相关模型等数据 ......\projects\image_chat\transresnet_multimodal\model下
+(2) 此外关于personality 模型会自动下载
+(3) projects包含整个image-chat的toolkit
+    projects/image_chat为image-chat的toolkit
+    transresnet_multimodal 为模型的位置, 具体存放可参见(1)
+
+(4)image_chat.py为开始运行文件
