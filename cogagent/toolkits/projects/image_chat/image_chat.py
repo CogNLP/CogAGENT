@@ -497,11 +497,6 @@ def load_task_module(taskname: str):
     """
     task_path_list, repo = _get_task_path_and_repo(taskname)
     task_path = task_path_list[0]
-    # task_path = "/data/zhaojingxuan/zjxcode/CogAgent/cogagent/toolkits/projects/image_chat/interactive.agents"
-    print("[hyk] test")
-    print(task_path)
-    # task_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(task_path))))
-    # print(task_path)
 
     if '.' in task_path:
         module_name = task_path
