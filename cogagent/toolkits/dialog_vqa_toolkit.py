@@ -17,6 +17,56 @@ from skimage import io  # pip3 install scikit-image -i https://pypi.tuna.tsinghu
 
 
 class DialogVQAToolkit(BaseToolkit):
+    """
+    & 功能
+    输入一张图片和一个问题，返回问题的简短答案和句子答案
+    infer_valid封闭域推断现有数据集
+    prepare_feature开放域准备原始数据
+    infer_one开放域推断新的一条数据
+    & 参数
+    dataset_name:训练的数据集名称
+    data_path:数据集路径
+    model_name:模型的名字
+    language:语言
+    n_shot：n_shot
+    n_ensemble:集成n_ensemble组n_shot
+    & 数据集说明
+    coco_annotations
+      --captions_train2014.json
+      --captions_val2014.json
+      --mscoco_train2014_annotations.json
+      --mscoco_val2014_annotations.json()
+      --OpenEnded_mscoco_train2014_questions.json
+      --OpenEnded_mscoco_val2014_questions.json()
+
+    coco_clip_new
+      --okvqa_qa_line2sample_idx_train2014.json
+      --okvqa_qa_line2sample_idx_val2014.json
+
+    input_text
+      --coco_caption_pred_tags
+      ----test.score.json.lineidx
+      ----test.score.json.tsv
+      ----train.score.json.lineidx
+      ----train.score.json.tsv
+      ----val.score.json.lineidx
+      ----val.score.json.tsv
+      --vinvl_caption
+      ----VinVL_base_test.tsv
+      ----VinVL_base_val.tsv
+      ----VinVL_base_val2014.tsv
+
+    例子：
+    "image_id": 297147,
+    "question_id": 2971475
+    "question": "What sport can you use this for?",
+    "image_url": "http://images.cocodataset.org/val2014/COCO_val2014_000000297147.jpg"
+
+    & 待做
+    把答案组织成一个句子
+
+
+    """
 
     def __init__(self,
                  dataset_name,
@@ -79,6 +129,8 @@ class DialogVQAToolkit(BaseToolkit):
                 self.val_answer_dict[str(sample['image_id']) + '<->' + str(sample['question_id'])] = [x['answer'] for x
                                                                                                       in
                                                                                                       sample['answers']]
+        # {image_id<->question_id:候选答案列表}
+        # {'297147<->2971475':['race', 'race', 'race', 'race', 'race', 'race', 'motocross', 'motocross', 'ride', 'ride']}
 
         self.train_question_dict = {}
         for sample in self.train_question_anno['questions']:
@@ -90,8 +142,11 @@ class DialogVQAToolkit(BaseToolkit):
             if str(sample['image_id']) + '<->' + str(sample['question_id']) not in self.val_question_dict:
                 self.val_question_dict[str(sample['image_id']) + '<->' + str(sample['question_id'])] = sample[
                     'question']
+        # {image_id<->question_id: 问题字符串}
+        # {'297147<->2971475':'What sport can you use this for?'}
 
         self.val_keys = list(self.val_question_dict.keys())
+        # [image_id<->question_id]的列表，是验证集的列表
 
         coco_caption = json.load(open(self.train_caption_anno_file, 'r'))['annotations']
         self.train_caption_dict = {}
@@ -100,6 +155,7 @@ class DialogVQAToolkit(BaseToolkit):
                 self.train_caption_dict[sample['image_id']] = [sample['caption']]
             else:
                 self.train_caption_dict[sample['image_id']].append(sample['caption'])
+        # {image_id:[caption列表]}字典
 
         self.val_caption_dict = {}
         val_read_tsv = csv.reader(open(self.val_caption_anno_file, 'r'), delimiter="\t")
@@ -108,13 +164,15 @@ class DialogVQAToolkit(BaseToolkit):
                 self.val_caption_dict[int(row[0])] = [row[1].split('caption": "')[1].split('", "conf"')[0]]
             else:
                 self.val_caption_dict[int(row[0])].append(row[1].split('caption": "')[1].split('", "conf"')[0])
+        # {image_id:[caption列表]}字典
 
         self.train_idx2key = json.load(open(self.train_file, 'r'))
         self.val_idx2key = json.load(open(self.val_file, 'r'))
-
+        # {训练验证编号:image_id<->question_id}(编号是特征矩阵的顺序)
         self.val_key2idx = {}
         for ii in self.val_idx2key:
             self.val_key2idx[self.val_idx2key[ii]] = int(ii)
+        # {image_id<->question_id:验证编号}
 
         self.train_question_feature = np.load(self.train_question_feature_file)
         self.train_image_feature = np.load(self.train_image_feature_file)
@@ -122,6 +180,7 @@ class DialogVQAToolkit(BaseToolkit):
         self.valid_image_feature = np.load(self.valid_image_feature_file)
         self.train_question_open_domian_feature = np.load(self.train_question_open_domian_feature_file)
         self.train_image_open_domian_feature = np.load(self.train_image_open_domian_feature_file)
+        # 问题特征和图像特征
 
     def prepare_feature(self):
         device = "cpu"
@@ -159,7 +218,7 @@ class DialogVQAToolkit(BaseToolkit):
                             'coco_clip_newnew/coco_clip_vitb16_train2014_okvqa_convertedidx_image.npy')
         np.save(path, image_features_matrix, allow_pickle=True, fix_imports=True)
 
-    def infer_one(self, raw_dict):
+    def infer_one(self, raw_dict,image_str=True):
         infer_dict = {}
 
         device = "cpu"
@@ -170,7 +229,13 @@ class DialogVQAToolkit(BaseToolkit):
         text_features = model.encode_text(text).squeeze().detach().numpy()
 
         url = raw_dict["image_url"]
-        image = Image.open(requests.get(url, stream=True).raw)
+        if image_str:
+            if url[:4]=="http":
+                image = Image.open(requests.get(url, stream=True).raw)
+            else:
+                image = Image.open(url)
+        else:
+            image=url
         image = preprocess(image).unsqueeze(0).to(device)
         image_features = model.encode_image(image).squeeze().detach().numpy()
 
@@ -227,7 +292,7 @@ class DialogVQAToolkit(BaseToolkit):
             if pred_prob_list[ii] > maxval:
                 maxval, pred_answer = pred_prob_list[ii], pred_answer_list[ii]
 
-        prompt_sentence = caption_i + '.' +question + pred_answer+"." + "This is because"
+        prompt_sentence = caption_i + '.' + question + pred_answer + "." + "This is because"
         response_sentence = openai.Completion.create(
             engine='davinci',
             prompt=prompt_sentence,
@@ -334,10 +399,20 @@ class DialogVQAToolkit(BaseToolkit):
 
 
 if __name__ == "__main__":
-    raw_dict = {"image_url": "http://images.cocodataset.org/val2014/COCO_val2014_000000297147.jpg",
-                "question": "What job often ride it?"}
+    raw_dict = {"image_url": "http://images.cocodataset.org/train2014/COCO_train2014_000000517985.jpg",
+                "question": "Which essential food group is missing?"}
 
-    image = io.imread("http://images.cocodataset.org/val2014/COCO_val2014_000000297147.jpg")
+    # http://images.cocodataset.org/val2014/COCO_val2014_000000297147.jpg
+    # What sport can you use this for?
+    # What is its color?
+    # What is its speed?
+    # What job often ride it?
+
+    # http://images.cocodataset.org/train2014/COCO_train2014_000000392136.jpg
+
+    # http://images.cocodataset.org/train2014/COCO_train2014_000000384029.jpg
+    # Who likes to eat the things in the picture?
+    image = io.imread("http://images.cocodataset.org/train2014/COCO_train2014_000000517985.jpg")
     io.imshow(image)
     io.show()
     dialogvqatoolkit = DialogVQAToolkit(
@@ -351,5 +426,5 @@ if __name__ == "__main__":
     # 准备数据
     # dialogvqatoolkit.prepare_feature()
     # 推断单条数据
-    infer_dict = dialogvqatoolkit.infer_one(raw_dict=raw_dict)
-    print("infer_dict")
+    infer_dict = dialogvqatoolkit.infer_one(raw_dict=raw_dict,image_str=True)
+    print(infer_dict)

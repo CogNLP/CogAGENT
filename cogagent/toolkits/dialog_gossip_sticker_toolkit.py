@@ -15,6 +15,25 @@ import matplotlib.pyplot as plt
 
 
 class DialogGossipStickerToolkit(BaseToolkit):
+    """
+    & 功能
+    一人一句闲聊型对话,附加表情包
+    [speaker1]是机器端
+    [speaker2]是用户端
+    & 参数
+    model_path:保存的模型的路径
+    dataset_name:训练的数据集名称
+    model_name:模型的名字
+    sticker_dataset_name:表情包数据集名字
+    sticker_model_name:表情包模型名字
+    sticker_model_path:表情包模型路径
+    language:语言
+    max_history_len：可见历史对话长度
+    generate_max_len:生成文本的最大长度
+    select_id:选择概率最大的第几个图片
+    & 可以搭配的参数
+    dataset_name = "ChineseGossipDialog50w"，model_name = "ChineseGossipDialog"
+    """
 
     def __init__(self,
                  dataset_name=None,
@@ -30,7 +49,7 @@ class DialogGossipStickerToolkit(BaseToolkit):
                  generate_max_len=32,
                  select_id=4,
                  id2img_path=None,
-                 image_path=None):
+                 image_path=None) -> object:
         super().__init__()
         self.dataset_name = dataset_name
         self.model_name = model_name
@@ -48,8 +67,6 @@ class DialogGossipStickerToolkit(BaseToolkit):
         self.image_path = image_path
 
         self.max_token_len = 512
-        self.history_tokens = []
-        self.history_strings = []
 
         if self.dataset_name == "ChineseGossipDialog" and self.model_name == "ChineseGossipDialog":
             self.tokenizer = BertTokenizerFast(
@@ -98,16 +115,19 @@ class DialogGossipStickerToolkit(BaseToolkit):
                                                     image_path=self.image_path)
             self.sticker_model = load_model(self.sticker_model, self.sticker_model_path)
 
-    def _process_ChineseGossipDialog_for_ChineseGossipDialog(self, raw_dict):
+    def _process_ChineseGossipDialog_for_ChineseGossipDialog(self,
+                                                             raw_dict,
+                                                             dialogue_history,
+                                                             dialogue_history_token=None):
         user_tokens = self.tokenizer.encode(raw_dict["sentence"], add_special_tokens=False)
-        self.history_tokens.append(user_tokens)
+        dialogue_history_token.append(user_tokens)
         input_ids = [self.tokenizer.cls_token_id]
-        for history_item_tokens in self.history_tokens[-self.max_history_len:]:
+        for history_item_tokens in dialogue_history_token[-self.max_history_len:]:
             input_ids.extend(history_item_tokens)
             input_ids.append(self.tokenizer.sep_token_id)
         input_ids = torch.tensor(input_ids).unsqueeze(0)
         sticker_input_strings = ''
-        for index, history_item_strings in enumerate(self.history_strings[-self.max_history_len:]):
+        for index, history_item_strings in enumerate(dialogue_history[-self.max_history_len:]):
             if index % 2 == 0:
                 sticker_input_strings = sticker_input_strings + '[speaker1]' + history_item_strings
             if index % 2 == 1:
@@ -127,48 +147,38 @@ class DialogGossipStickerToolkit(BaseToolkit):
                           "input_ids": input_ids}
         sticker_processed_dict = {"input_ids": torch.tensor(sticker_input_ids).unsqueeze(0),
                                   "valid_token_len": torch.tensor(sticker_valid_token_len).unsqueeze(0)}
-        return (processed_dict, sticker_processed_dict)
+        return (processed_dict, sticker_processed_dict,dialogue_history,dialogue_history_token)
 
-    def _process_one(self, raw_dict):
+    def _process_one(self, raw_dict,dialogue_history=None,dialogue_history_token=None):
         processed_dict = {}
         sticker_processed_dict = {}
         if self.dataset_name == "ChineseGossipDialog" and self.model_name == "ChineseGossipDialog":
-            processed_dict, sticker_processed_dict = self._process_ChineseGossipDialog_for_ChineseGossipDialog(
-                raw_dict)
-        return (processed_dict, sticker_processed_dict)
+            processed_dict, sticker_processed_dict,dialogue_history,dialogue_history_token = self._process_ChineseGossipDialog_for_ChineseGossipDialog(
+                raw_dict,
+                dialogue_history,
+                dialogue_history_token)
+        return (processed_dict, sticker_processed_dict,dialogue_history,dialogue_history_token)
 
-    def infer_one(self, raw_dict=None):
-        dialog_history_dict = {"dialog_history": []}
-        while True:
-            try:
-                user_sentence = input("user:")
-                raw_dict = {}
-                raw_dict["sentence"] = user_sentence
-                raw_dict["character"] = "user"
-                self.history_strings.append(raw_dict["sentence"])
-                processed_dict, sticker_processed_dict = self._process_one(raw_dict)
-                infer_sentence = self.model.predict(batch=processed_dict)[0]
-                infer_img_id_list = self.sticker_model.predict(batch=sticker_processed_dict)[0]
-                infer_img_id = infer_img_id_list[self.select_id]
-                print(infer_sentence)
-                img_path = os.path.join(self.image_path, self.id2imgpath[infer_img_id.item()])
-                im = Image.open(img_path)
-                for frame in ImageSequence.Iterator(im):
-                    frame = frame.convert('RGB')
-                    cv2_frame = numpy.array(frame)
-                    plt.imshow(cv2_frame)
-                    plt.show()
-                infer_dict = {}
-                infer_dict["sentence"] = infer_sentence
-                infer_dict["infer_img_id"] = infer_img_id
-                infer_dict["character"] = "agent"
-                dialog_history_dict["dialog_history"].append(raw_dict)
-                dialog_history_dict["dialog_history"].append(infer_dict)
-                self.history_strings.append(infer_dict["sentence"])
-            except KeyboardInterrupt:
-                print("聊天结束.")
-                break
-        return dialog_history_dict
+    def infer_one(self, user_sentence=None, dialogue_history=None,dialogue_history_token=None):
+        raw_dict = {}
+        raw_dict["sentence"] = user_sentence
+        raw_dict["character"] = "user"
+        dialogue_history.append(raw_dict["sentence"])
+        processed_dict, sticker_processed_dict,dialogue_history,dialogue_history_token = self._process_one(raw_dict,
+                                                                                                           dialogue_history,
+                                                                                                           dialogue_history_token)
+        infer_sentence = self.model.predict(batch=processed_dict)[0]
+        infer_img_id_list = self.sticker_model.predict(batch=sticker_processed_dict)[0]
+        infer_img_id = infer_img_id_list[self.select_id]
+        img_path = os.path.join(self.image_path, self.id2imgpath[infer_img_id.item()])
+        # im = Image.open(img_path)
+        # for frame in ImageSequence.Iterator(im):
+        #     frame = frame.convert('RGB')
+        #     cv2_frame = numpy.array(frame)
+        #     plt.imshow(cv2_frame)
+        #     plt.show()
+        dialogue_history.append(infer_sentence)
+        return infer_sentence,img_path,dialogue_history,dialogue_history_token
 
 
 if __name__ == "__main__":
@@ -187,6 +197,18 @@ if __name__ == "__main__":
         select_id=0,
         id2img_path="/data/mentianyi/code/CogNLP/datapath/mm_dialog/mod/raw_data/id2img.json",
         image_path="/data/mentianyi/code/CogNLP/datapath/mm_dialog/mod/raw_data/meme_set")
-    infer_dict = dialoggossiptoolkit.infer_one()
-    print(infer_dict)
+    dialogue_history = []
+    dialogue_history_token = []
+    while True:
+        try:
+            user_sentence = input("user:")
+            sentence,image,dialogue_history,dialogue_history_token = dialoggossiptoolkit.infer_one(user_sentence=user_sentence,
+                                                                                                   dialogue_history=dialogue_history,
+                                                                                                   dialogue_history_token=dialogue_history_token)
+            print(sentence,image,dialogue_history,dialogue_history_token)
+
+        except KeyboardInterrupt:
+            print("end")
+            break
+
     print("end")
