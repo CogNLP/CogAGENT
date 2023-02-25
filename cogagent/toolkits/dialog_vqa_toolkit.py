@@ -294,13 +294,13 @@ class DialogVQAToolkit(BaseToolkit):
 
         prompt_sentence = caption_i + '.' + question + pred_answer + "." + "This is because"
         response_sentence = openai.Completion.create(
-            engine='davinci',
+            engine=self.engine,
             prompt=prompt_sentence,
-            max_tokens=30,
+            max_tokens=50,
             temperature=0,
-            top_p=1.0,
-            frequency_penalty=0.0,
-            presence_penalty=0.0,
+            frequency_penalty=1.2,
+            presence_penalty=1.2,
+            stop=["\n"]
         )
         reason = response_sentence['choices'][0]["text"]
 
@@ -424,7 +424,7 @@ if __name__ == "__main__":
     # 推断现有数据集
     # infer_valid_dict = dialogvqatoolkit.infer_valid(infer_num=100)
     # 准备数据
-    # dialogvqatoolkit.prepare_feature()
+    dialogvqatoolkit.prepare_feature()
     # 推断单条数据
     infer_dict = dialogvqatoolkit.infer_one(raw_dict=raw_dict,image_str=True)
     print(infer_dict)
