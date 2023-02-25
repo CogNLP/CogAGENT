@@ -8,7 +8,7 @@ import torch
 st.title('CogAgent')
 
 st.markdown('''
-:green[**_A KNOWLEDGE-ENHANCED TEXT REPRESENTATION TOOLKIT FOR NATURAL LANGUAGE UNDERSTANDING_**]
+:green[**_A MULTIMODAL, KNOWLEDGEABLE AND CONTROLLABLE TOOLKIT FOR BUILDING CONVERSATIONAL AGENTS_**]
 ''')
 
 st.header("Dialogue Safety Detection")

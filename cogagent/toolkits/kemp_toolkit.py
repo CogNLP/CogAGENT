@@ -102,7 +102,7 @@ def load_params():
     args.KG_idx = 6  # concept state
     args.CLS_idx = 7
     args.SEP_idx = 8
-    args.device = torch.device("cuda:8" if torch.cuda.is_available() else "cpu")
+    args.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     args.USE_CUDA = USE_CUDA
     return args
 
@@ -127,21 +127,22 @@ class KempToolkit(BaseToolkit):
         load_model(self.model, self.model_path)
         self.model.to(self.device)
 
-    def run(self, sentence):
-        sentence = re.split(r'\s+', sentence)
-        preprocessed_sen = preprocess(sentence, concept_num=3)
+    def run(self, sentences):
         datable = DataTable()
-        datable('context', [preprocessed_sen['context']])
-        datable('concepts', preprocessed_sen['concepts'])
-        datable('vads', preprocessed_sen['vads'])
-        datable('vad', preprocessed_sen['vad'])
+        for sentence in sentences:
+            sentence = re.split(r'\s+', sentence)
+            preprocessed_sen = preprocess(sentence, concept_num=3)
+            datable('context', [preprocessed_sen['context']])
+            datable('concepts', preprocessed_sen['concepts'])
+            datable('vads', preprocessed_sen['vads'])
+            datable('vad', preprocessed_sen['vad'])
 
-        datable('sample_concepts', preprocessed_sen['sample_concepts'])
-        datable('target_vad', preprocessed_sen['target_vad'])
-        datable('target_vads', preprocessed_sen['target_vads'])
-        datable('target', preprocessed_sen['target'])
-        datable('emotion', preprocessed_sen['emotion'])
-        datable('situation', preprocessed_sen['situation'])
+            datable('sample_concepts', preprocessed_sen['sample_concepts'])
+            datable('target_vad', preprocessed_sen['target_vad'])
+            datable('target_vads', preprocessed_sen['target_vads'])
+            datable('target', preprocessed_sen['target'])
+            datable('emotion', preprocessed_sen['emotion'])
+            datable('situation', preprocessed_sen['situation'])
         # 数据预处理：得到 加入概念和VAD后，包含句子相关信息的字典（即训练集）
         item = Dataset(datable, self.vocab[0], self.args)
         item = item.__getitem__(0)
@@ -155,10 +156,10 @@ class KempToolkit(BaseToolkit):
 
 if __name__ == '__main__':
     toolkit = KempToolkit(bert_model=None,
-                          model_path='/data/zhaojingxuan/zjxcode/CogAgent/datapath/kemp/experimental_result/simple_test--2023-01-30--17-28-17.80/model/checkpoint-50000/models.pt',
-                          vocabulary_path='/data/zhaojingxuan/zjxcode/CogAgent/datapath/kemp/raw_data/vocab.json',
+                          model_path='/data/hongbang/CogAGENT/datapath/kemp/experimental_result/simple_test--2023-01-30--17-28-17.80/model/checkpoint-50000/models.pt',
+                          vocabulary_path='/data/hongbang/CogAGENT/datapath/kemp/raw_data/vocab.json',
                           device=torch.device("cuda:8"),
                           )
-    sentence = "I am very happy today."
-    label = toolkit.run(sentence)
+    sentences = ["I am very happy today."]
+    label = toolkit.run(sentences)
     print("label:", label[0])

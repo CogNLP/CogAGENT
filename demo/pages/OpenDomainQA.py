@@ -8,15 +8,14 @@ import torch
 st.title('CogAgent')
 
 st.markdown('''
-:green[**_A KNOWLEDGE-ENHANCED TEXT REPRESENTATION TOOLKIT FOR NATURAL LANGUAGE UNDERSTANDING_**]
+:green[**_A MULTIMODAL, KNOWLEDGEABLE AND CONTROLLABLE TOOLKIT FOR BUILDING CONVERSATIONAL AGENTS_**]
 ''')
-
 st.header("Open Domain Question Answering")
 st.sidebar.markdown("Open Domain Question Answering")
-st.warning('''
-**This module is a question and answer in the open domain, which is a single round of dialogue. 
-Users ask questions, and this module gives answers and retrieves relevant articles from Wikipedia. Write Exit to stop.**
-''')
+# st.warning('''
+# **This module is a question and answer in the open domain, which is a single round of dialogue.
+# Users ask questions, and this module gives answers and retrieves relevant articles from Wikipedia. Write Exit to stop.**
+# ''')
 
 # choice = st.selectbox('Question', ['Select an example or input text', 'Which part of earth is covered with water?',
 #                                    'Who proved that genes are located on chromosomes?',
