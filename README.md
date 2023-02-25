@@ -1,7 +1,7 @@
 ---
 
 
-# <img src="docs/images/log.png" alt="*CogAGENT: A Multimodal, Knowledgeable and Controllable Toolkit for Building Conversational Agents" width="20%">
+# <img src="docs/images/log.png" alt="*CogAGENT: A Multimodal, Knowledgeable and Controllable Toolkit for Building Conversational Agents" width="50%">
 **CogAGENT: A Multimodal, Knowledgeable and Controllable Toolkit for Building Conversational Agents**
 
 **Demo system and more information is available at https://synehe.github.io/CogAGENT/**
