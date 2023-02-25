@@ -13,15 +13,15 @@ import torch
 st.title('CogAgent')
 
 st.markdown('''
-:green[**_VQA_**]
+:green[**_A MULTIMODAL, KNOWLEDGABLE AND CONTROLLABLE TOOLKIT FOR BUILDING CONVERSATIONAL AGENTS_**]
 ''')
-st.header("VQA")
-st.sidebar.markdown("VQA")
+st.header("MULTIMODAL ENHANCEMENT KNOWLEDGE-BASED VQA")
 
 
-# st.warning('''
-# **This module is a dialogue based on unstructured text knowledge, which can conduct multiple rounds of dialogue. Write Exit to stop.**
-# ''')
+
+st.warning('''
+**This module is mainly used to ask questions about pictures uploaded by users. We use GPT-3 as external knowledge base. It can answer some commonsense questions about the picture.**
+''')
 
 
 # # *******************************Loading Knowledge Grounded Agent*******************************
@@ -56,15 +56,15 @@ def load_an_image(image):
 
 image_file = st.file_uploader("Upload Images", type=["png", "jpg", "jpeg"])
 if image_file is not None:
-    st.image(load_an_image(image_file), width=250)
-user_input = st.text_input("Talk to CogAgent!", key='user_input')
+    st.image(load_an_image(image_file), width=600)
 
-btn = st.button("Restart Dialogue", key='reset', on_click=reset_dialogue)
 
 if 'generated' not in st.session_state:
     st.session_state['generated'] = []
 if 'user_input_history' not in st.session_state:
     st.session_state["user_input_history"] = []
+if 'user_input' not in st.session_state:
+    st.session_state["user_input"] = ''
 
 if st.session_state["user_input"]:
     output = st.session_state["user_input"]
@@ -73,10 +73,14 @@ if st.session_state["user_input"]:
 
     infer_dict = agent.infer_one(raw_dict=raw_dict, image_str=False)
     sentence = "This is a picture about: " + infer_dict["caption"] + ". \t" + "I think the answer is: " + infer_dict[
-        "pred_answer"] + ". \t" + "Because: " + infer_dict["reason"]
+        "pred_answer"] + "." + " Because: " + infer_dict["reason"]
     st.session_state["generated"].append(sentence)
     st.session_state["user_input_history"].append(output)
 if st.session_state['generated']:
-    for i in range(len(st.session_state['generated']) - 1, -1, -1):
-        message(st.session_state["generated"][i], key=str(i))
+    for i in range(0,len(st.session_state['generated']) ):
         message(st.session_state['user_input_history'][i], is_user=True, key=str(i) + '_user')
+        message(st.session_state["generated"][i], key=str(i))
+
+
+user_input = st.text_input("Talk to CogAgent!", key='user_input')
+btn = st.button("Restart Dialogue", key='reset', on_click=reset_dialogue)
