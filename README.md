@@ -9,7 +9,7 @@
 
 
 ## Description
-CogKGE is a toolkit for building **multimodal**, **knowledgeable** and **controllable** conversational agents. We provide 17 models and integrate a variety of datasets covered above features. We decouple and modularize them flexibly to make users more convenient for development and research.
+CogAGENT is a toolkit for building **multimodal**, **knowledgeable** and **controllable** conversational agents. We provide 17 models and integrate a variety of datasets covered above features. We decouple and modularize them flexibly to make users more convenient for development and research.
 
 This package has the following advantages:
 
