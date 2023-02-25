@@ -1,91 +1,112 @@
 import streamlit as st
-from cogagent.utils.log_utils import logger
-from cogagent.toolkits.openqa_toolkit import OpenqaAgent
-import torch
+from PIL import Image
 
-## Construct Web Pages
-
-st.title('CogAgent')
-
-st.markdown('''
-:green[**_A KNOWLEDGE-ENHANCED TEXT REPRESENTATION TOOLKIT FOR NATURAL LANGUAGE UNDERSTANDING_**]
-''')
 
 st.sidebar.markdown("# Main page 🎈")
 
-# st.header("Open Domain Question Answering")
-#
-# st.warning('''
-# **This module is a question and answer in the open domain, which is a single round of dialogue.
-# Users ask questions, and this module gives answers and retrieves relevant articles from Wikipedia. Write Exit to stop.**
-# ''')
-#
-# choice = st.selectbox('Question', ['Select an example or input text', 'Which part of earth is covered with water?',
-#                                    'Who proved that genes are located on chromosomes?',
-#                                    'Where will the summer olympics be held in 2020?',
-#                                    'Who has the largest contract in the NBA?',
-#                                    'Who has the most points in nba finals history?',
-#                                    'Who died in Harry Potter and the Half-Blood Prince?'])
-# if choice == 'Select an example or input text':
-#     question = st.text_input('Input text here', '')
-# else:
-#     question = st.text_input('Input text here', choice)
-# n_doc = st.slider('Please select the number of relevant articles retrieved from Wikipedia', 1, 10)
-#
-# submit = st.button('SUBMIT')
-#
-#
-# ## Loading OpenQA Agent
-#
-# @st.cache_resource
-# def load_openqa_agent():
-#     logger.info("Loading open qa agent...")
-#     agent = OpenqaAgent(
-#         bert_model="bert-base-uncased",
-#         model_path='/data/hongbang/CogKTR/datapath/question_answering/NaturalQuestions/raw_data/bert-base-mrc-openqa.pt',
-#         device=torch.device("cuda:9"),
-#         debug=False,
-#     )
-#     logger.info("Loading Finished.")
-#     return agent
-#
-#
-# agent = load_openqa_agent()
-#
-# ## call the openqa interface
-# if submit:
-#     if question != 'Exit':
-#         wiki_psgs = agent.search_wiki(question)
-#         dataloader = agent.construct_dataloader(question, wiki_psgs)
-#         _, pred_text = agent.predict(dataloader)
-#
-#         st.write("Answer")
-#         st.success(pred_text)
-#         st.write("Relevant Articles")
-#         for i in range(n_doc):
-#             st.success(wiki_psgs[i][1])
-#     else:
-#         st.info('Thanks')
+image = Image.open('../../docs/log.png')
+st.image(image)
 
+st.title('A :blue[Multimodal], :green[Knowledgeable] and :orange[Controllable] Toolkit for Building Conversational Agents :robot_face: ')
+
+
+st.header('Feature')
+
+st.subheader('**1.A multimodal, knowledgeable and controllable conversational framework.**')
+st.markdown('We propose a unified framework named CogAGENT, incorporating Multimodal Module, Knowledgeable Module and Controllable Module to conduct multimodal interaction, generate knowledgeable response and make replies under control in real scenarios.</font>')
+st.subheader('**2.Comprehensive conversational models, datasets and metrics.**')
+st.markdown('CogAGENT implements 17 conversational models covering task-oriented dialogue, open-domain dialogue and question-answering tasks. We also integrate some widely used conversational datasets and metrics to verify the performance of models.')
+st.subheader('**3.Open-source and modularized conversational toolkit.**')
+st.markdown('We release CogAGENT as an open-source toolkit and modularize conversational agents to provide easy-to-use interfaces. Hence, users can modify codes for their own customized models or datasets.')
+st.subheader('**4.Online dialogue system.**')
+st.markdown('We release an online system, which supports conversational agents to interact with users. We also provide a  video to illustrate how to use it.')
+
+# st.header('2.Demo Usage')
+
+
+# st.header('3.Code Usage')
+#
+# st.subheader('3.1 Quick Start')
+# code = '''
+# # clone CogAGENT
+# git git@github.com:CogNLP/CogAGENT.git
+#
+# # install CogAGENT
+# cd cogagent
+# pip install -e .
+# pip install -r requirements.txt
+# '''
+# st.code(code, language='bash')
+#
+# st.subheader('3.2 Programming Framework for Training Models')
+#
+# code = '''
+# from cogagent import *
 # import torch
-# from transformers import AutoTokenizer, AutoModelForSequenceClassification
+# import torch.nn as nn
+# import torch.optim as optim
 #
-# tokenizer = AutoTokenizer.from_pretrained("Hate-speech-CNERG/bert-base-uncased-hatexplain")
+# # init the logger,device and experiment result saving dir
+# device, output_path = init_cogagent(
+#     device_id=8,
+#     output_path=datapath,
+#     folder_tag="run_diffks_on_wow",
+# )
 #
-# model = AutoModelForSequenceClassification.from_pretrained("Hate-speech-CNERG/bert-base-uncased-hatexplain")
+# # choose utterance reader
+# reader = WoWReader(raw_data_path=raw_data_path)
+# train_data, dev_data, test_data = reader.read_all()
+# vocab = reader.read_vocab()
 #
-# # sentence = "I'm a huge fan of this nutritionally balanced dish, and I don't think vegans are strong enough."
-# sentence = "I like you. I love you"
+# # choose data processor
+# # In the training phase, no retriever is selected as the knowledge is provided by dataset
+# processor = WoWForDiffksProcessor(max_token_len=512, vocab=vocab, debug=False)
+# train_dataset = processor.process_train(train_data)
+# dev_dataset = processor.process_dev(dev_data)
+# test_dataset = processor.process_test(test_data)
 #
-# inputs = tokenizer(sentence, return_tensors="pt")
+# # choose response generator
+# model = DiffKSModel()
+# metric = BaseKGCMetric(default_metric_name="bleu-4",vocab=vocab)
+# loss = nn.CrossEntropyLoss()
+# optimizer = optim.Adam(model.parameters(), lr=0.0001)
 #
-# with torch.no_grad():
-#     logits = model(**inputs).logits
-#     # logits = torch.softmax(logits,dim=1)
+# # Use the provided Trainer class to start the model training process
+# trainer = Trainer(model,train_dataset,dev_data=test_dataset,n_epochs=40,batch_size=2,
+#                   loss=loss,optimizer=optimizer,scheduler=None,metrics=metric,
+#                   drop_last=False,gradient_accumulation_steps=1,num_workers=5,
+#                   validate_steps=2000,save_by_metric="bleu-4",save_steps=None,
+#                   output_path=output_path,grad_norm=1,
+#                   use_tqdm=True,device=device,
+#                   fp16_opt_level='O1',
+#                   )
+# trainer.train()
 #
-# label = ['normal','offensive','hate speech']
-# logits = logits.clone().cpu().numpy().tolist()[0]
-# print(sentence)
-# for tag,prob in zip(label,logits):
-#     print(tag,prob)
+# '''
 #
+#
+# st.code(code, language='python')
+
+
+# import pandas as pd
+# import streamlit as st
+#
+# # Cache the dataframe so it's only loaded once
+# @st.cache_data
+# def load_data():
+#     return pd.DataFrame(
+#         {
+#             "first column": [1, 2, 3, 4],
+#             "second column": [10, 20, 30, 40],
+#         }
+#     )
+#
+# # Boolean to resize the dataframe, stored as a session state variable
+# st.checkbox("Use container width", value=False, key="use_container_width")
+#
+# df = load_data()
+#
+# # Display the dataframe and allow the user to stretch the dataframe
+# # across the full width of the container, based on the checkbox value
+# st.dataframe(df, use_container_width=st.session_state.use_container_width)
+
