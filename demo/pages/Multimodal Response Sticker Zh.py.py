@@ -3,8 +3,9 @@ import sys
 sys.path.append('/data/mentianyi/code/CogNLP')
 import streamlit as st
 from streamlit_chat import message
-from cognlp.toolkits.dialog_gossip_sticker_toolkit import DialogGossipStickerToolkit
+from cogagent.toolkits.dialog_gossip_sticker_toolkit import DialogGossipStickerToolkit
 import torch
+from cogagent.utils.io_utils import load_file_path_yaml
 
 # # *******************************Construct Web Pages*******************************
 
@@ -28,24 +29,27 @@ This module is mainly used to reply both texts and stickers.
 
 
 # # *******************************Loading Knowledge Grounded Agent*******************************
-
+config = load_file_path_yaml("./config.yaml")
 @st.cache_resource
 def load_sticker_agent():
     agent = DialogGossipStickerToolkit(
         dataset_name="ChineseGossipDialog",
         model_name="ChineseGossipDialog",
-        vocab_path="/data/mentianyi/code/CogNLP/datapath/gossip_dialog/chinese_gossip_dialog/raw_data/vocab.txt",
-        model_path="/data/mentianyi/code/CogNLP/datapath/gossip_dialog/chinese_gossip_dialog/raw_data",
+        # vocab_path="/data/mentianyi/code/CogNLP/datapath/gossip_dialog/chinese_gossip_dialog/raw_data/vocab.txt",
+        # model_path="/data/mentianyi/code/CogNLP/datapath/gossip_dialog/chinese_gossip_dialog/raw_data",
         file_or_model="file",
         sticker_dataset_name="Mod",
         sticker_model_name="StickerDialog",
-        sticker_model_path="/data/mentianyi/code/CogNLP/datapath/mm_dialog/mod/experimental_result/final--2023-01-17--14-00-56.81/model/checkpoint-780000/models.pt",
+        # sticker_model_path="/data/mentianyi/code/CogNLP/datapath/mm_dialog/mod/experimental_result/final--2023-01-17--14-00-56.81/model/checkpoint-780000/models.pt",
         language="chinese",
         max_history_len=3,
         generate_max_len=20,
         select_id=0,
-        id2img_path="/data/mentianyi/code/CogNLP/datapath/mm_dialog/mod/raw_data/id2img.json",
-        image_path="/data/mentianyi/code/CogNLP/datapath/mm_dialog/mod/raw_data/meme_set")
+        # id2img_path="/data/mentianyi/code/CogNLP/datapath/mm_dialog/mod/raw_data/id2img.json",
+        # image_path="/data/mentianyi/code/CogNLP/datapath/mm_dialog/mod/raw_data/meme_set")
+        **config["sticker"],
+    )
+
     return agent
 
 

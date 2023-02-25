@@ -182,21 +182,25 @@ class DialogGossipStickerToolkit(BaseToolkit):
 
 
 if __name__ == "__main__":
+    from cogagent.utils.io_utils import load_file_path_yaml
+    config = load_file_path_yaml("/data/hongbang/CogAGENT/demo/config.yaml")
     dialoggossiptoolkit = DialogGossipStickerToolkit(
         dataset_name="ChineseGossipDialog",
         model_name="ChineseGossipDialog",
-        vocab_path="/data/mentianyi/code/CogNLP/datapath/gossip_dialog/chinese_gossip_dialog/raw_data/vocab.txt",
-        model_path="/data/mentianyi/code/CogNLP/datapath/gossip_dialog/chinese_gossip_dialog/raw_data",
+        # vocab_path="/data/mentianyi/code/CogNLP/datapath/gossip_dialog/chinese_gossip_dialog/raw_data/vocab.txt",
+        # model_path="/data/mentianyi/code/CogNLP/datapath/gossip_dialog/chinese_gossip_dialog/raw_data",
         file_or_model="file",
         sticker_dataset_name="Mod",
         sticker_model_name="StickerDialog",
-        sticker_model_path="/data/mentianyi/code/CogNLP/datapath/mm_dialog/mod/experimental_result/final--2023-01-17--14-00-56.81/model/checkpoint-780000/models.pt",
+        # sticker_model_path="/data/mentianyi/code/CogNLP/datapath/mm_dialog/mod/experimental_result/final--2023-01-17--14-00-56.81/model/checkpoint-780000/models.pt",
         language="chinese",
         max_history_len=3,
         generate_max_len=20,
         select_id=0,
-        id2img_path="/data/mentianyi/code/CogNLP/datapath/mm_dialog/mod/raw_data/id2img.json",
-        image_path="/data/mentianyi/code/CogNLP/datapath/mm_dialog/mod/raw_data/meme_set")
+        **config["sticker"],
+        # id2img_path="/data/mentianyi/code/CogNLP/datapath/mm_dialog/mod/raw_data/id2img.json",
+        # image_path="/data/mentianyi/code/CogNLP/datapath/mm_dialog/mod/raw_data/meme_set")
+    )
     dialogue_history = []
     dialogue_history_token = []
     while True:

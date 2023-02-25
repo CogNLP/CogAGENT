@@ -10,3 +10,9 @@ openqa:
 dialogue_safety:
   classifier_path: dialogue_safety/classifiers/
 
+sticker:
+  vocab_path: sticker/chinese_gossip_dialog/raw_data/vocab.txt
+  model_path: sticker/chinese_gossip_dialog/raw_data/
+  sticker_model_path: sticker/sticker_model.pt
+  id2img_path: sticker/mm_dialog/raw_data/id2img.json
+  image_path: sticker/mm_dialog/raw_data/meme_set/
