@@ -3,6 +3,8 @@ import torch
 import pickle
 import torch.nn as nn
 from pathlib import Path
+import yaml
+import os
 
 
 def load_json(file_path):
@@ -56,3 +58,25 @@ def save_model(model, model_path):
     for key in state_dict:
         state_dict[key] = state_dict[key].cpu()
     torch.save(state_dict, model_path)
+
+
+def load_yaml(file_path):
+    if not isinstance(file_path, Path):
+        file_path = Path(file_path)
+    config = None
+    with open(file_path, "r") as stream:
+        try:
+            config = yaml.safe_load(stream)
+        except yaml.YAMLError as exc:
+            print(exc)
+    return config
+
+
+def load_file_path_yaml(file_path):
+    config = load_yaml(file_path)
+    if config is not None:
+        for key, value in config["openqa"].items():
+            path = os.path.join(config["rootpath"], value)
+            if os.path.exists(path):
+                config["openqa"][key] = path
+    return config

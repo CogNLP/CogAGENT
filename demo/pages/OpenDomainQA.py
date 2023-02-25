@@ -1,5 +1,6 @@
 import streamlit as st
 from cogagent.utils.log_utils import logger
+from cogagent.utils.io_utils import load_file_path_yaml
 from cogagent.toolkits.openqa_toolkit import OpenqaAgent
 import torch
 
@@ -34,17 +35,16 @@ submit = st.button('SUBMIT')
 
 
 # # *******************************Loading OpenQA Agent*******************************
-
+config = load_file_path_yaml("./config.yaml")
 @st.cache_resource
 def load_openqa_agent():
-    logger.info("Loading open qa agent...")
+    logger.info("Loading openqa agent...")
     agent = OpenqaAgent(
         bert_model="bert-base-uncased",
-        model_path='/data/hongbang/CogKTR/datapath/question_answering/NaturalQuestions/raw_data/bert-base-mrc-openqa.pt',
         device=torch.device("cuda:9"),
-        debug=False,
+        **config["openqa"],
     )
-    logger.info("Loading Finished.")
+    logger.info("Loading openqa agent Finished.")
     return agent
 
 

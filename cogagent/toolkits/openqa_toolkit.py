@@ -1,3 +1,5 @@
+import os.path
+
 from cogagent.toolkits.base_toolkit import BaseToolkit
 from cogagent.modules.search_modules import WikiSearcher
 from cogagent.utils.log_utils import logger
@@ -27,16 +29,21 @@ default_collate_err_msg_format = (
 
 
 class OpenqaAgent(BaseToolkit):
-    def __init__(self, bert_model,model_path, device, debug=False):
+    def __init__(self, bert_model,model_path, device,retriever_model_file,retriever_index_path,wiki_passages,debug=False):
         super(OpenqaAgent, self).__init__(bert_model,model_path,None,device)
         self.debug = debug
 
         logger.info("Constructing wikipedia searcher...")
         self.searcher = WikiSearcher(
-            model_file='/data/hongbang/projects/DPR/downloads/checkpoint/retriever/single-adv-hn/nq/bert-base-encoder.cp',
-            index_path='/data/hongbang/projects/DPR/outputs/my_index/',
-            wiki_passages='/data/hongbang/projects/DPR/downloads/data/wikipedia_split/psgs_w100.tsv'
+            model_file=retriever_model_file,
+            index_path=retriever_index_path,
+            wiki_passages=wiki_passages
         )
+        # self.searcher = WikiSearcher(
+        #     model_file='/data/hongbang/projects/DPR/downloads/checkpoint/retriever/single-adv-hn/nq/bert-base-encoder.cp',
+        #     index_path='/data/hongbang/projects/DPR/outputs/my_index/',
+        #     wiki_passages='/data/hongbang/projects/DPR/downloads/data/wikipedia_split/psgs_w100.tsv'
+        # )
 
         self.max_token_len = 384
         self.batch_size = 4
@@ -489,10 +496,31 @@ def get_tokens(s):
     return normalize_answer(s).split()
 
 if __name__ == '__main__':
+    import yaml
+    import os
+
+    with open("/data/hongbang/CogAGENT/demo/pages/config.yaml", "r") as stream:
+        try:
+            config = yaml.safe_load(stream)
+        except yaml.YAMLError as exc:
+            print(exc)
+    for key,value in config["openqa"].items():
+        path = os.path.join(config["rootpath"],value)
+        if os.path.exists(path):
+            config["openqa"][key] = path
+
     agent = OpenqaAgent(
         bert_model="bert-base-uncased",
-        model_path='/data/hongbang/CogKTR/datapath/question_answering/NaturalQuestions/raw_data/bert-base-mrc-openqa.pt',
         device=torch.device("cuda:9"),
-        debug=False,
+        **config["openqa"],
     )
-    agent.run()
+    # agent = OpenqaAgent(
+    #     bert_model="bert-base-uncased",
+    #     model_path='/data/hongbang/CogKTR/datapath/question_answering/NaturalQuestions/raw_data/bert-base-mrc-openqa.pt',
+    #     retriever_model_file='/data/hongbang/projects/DPR/downloads/checkpoint/retriever/single-adv-hn/nq/bert-base-encoder.cp',
+    #     retriever_index_path='/data/hongbang/projects/DPR/outputs/my_index/',
+    #     wiki_passages='/data/hongbang/projects/DPR/downloads/data/wikipedia_split/psgs_w100.tsv',
+    #     device=torch.device("cuda:9"),
+    #     debug=False,
+    # )
+    # agent.run()

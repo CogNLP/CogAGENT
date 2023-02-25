@@ -1,0 +1,10 @@
+rootpath: /data/hongbang/.cogagent/
+
+openqa:
+  model_path: openqa/bert-base-mrc-openqa.pt
+  retriever_model_file: openqa/retriever/bert-base-encoder.cp
+  retriever_index_path: openqa/retriever/index/
+  wiki_passages: openqa/wiki_passages/psgs_w100.tsv
+
+
+

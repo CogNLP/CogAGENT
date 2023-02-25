@@ -10,3 +10,8 @@ networkx==3.0
 spacy==3.4.4
 hydra
 faiss-cpu
+opencv-python
+openai
+git+https://github.com/openai/CLIP.gitgit+https://github.com/openai/CLIP.git
+skimage
+matpolotlib
