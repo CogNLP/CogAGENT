@@ -14,6 +14,8 @@ from typing import Optional
 import torch
 from torch import nn
 from torch import optim
+import sys,os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from agents.transformer.modules import TransformerEncoder
 from agents.transformer import transformer as Transformer
 # from parlai.agents.transformer.modules import TransformerEncoder
