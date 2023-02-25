@@ -3,19 +3,23 @@ import sys
 sys.path.append('/data/mentianyi/code/CogNLP')
 import streamlit as st
 from streamlit_chat import message
-from cogagent.toolkits.dialog_gossip_sticker_toolkit import DialogGossipStickerToolkit
+from cognlp.toolkits.dialog_gossip_sticker_toolkit import DialogGossipStickerToolkit
 import torch
-from transformers import AutoModelWithLMHead, AutoTokenizer, pipeline
 
 # # *******************************Construct Web Pages*******************************
 
 st.title('CogAgent')
 
 st.markdown('''
-:green[**_Sticker_English_**]
+:green[**_A MULTIMODAL, KNOWLEDGABLE AND CONTROLLABLE TOOLKIT FOR BUILDING CONVERSATIONAL AGENTS_**]
 ''')
-st.header("Sticker_English")
-st.sidebar.markdown("Sticker_English")
+st.header("MULTIMODAL RESPONSE STICKER CHINESE")
+
+
+
+st.warning('''
+This module is mainly used to reply both texts and stickers.
+''')
 
 
 # st.warning('''
@@ -42,20 +46,10 @@ def load_sticker_agent():
         select_id=0,
         id2img_path="/data/mentianyi/code/CogNLP/datapath/mm_dialog/mod/raw_data/id2img.json",
         image_path="/data/mentianyi/code/CogNLP/datapath/mm_dialog/mod/raw_data/meme_set")
-
-    en_zh_mode_name = 'Helsinki-NLP/opus-mt-en-zh'
-    en_zh_model = AutoModelWithLMHead.from_pretrained(en_zh_mode_name)
-    en_zh_tokenizer = AutoTokenizer.from_pretrained(en_zh_mode_name)
-    en_zh_translation = pipeline("translation_en_to_zh", model=en_zh_model, tokenizer=en_zh_tokenizer)
-
-    zh_en_mode_name = 'Helsinki-NLP/opus-mt-zh-en'
-    zh_en_model = AutoModelWithLMHead.from_pretrained(zh_en_mode_name)
-    zh_en_tokenizer = AutoTokenizer.from_pretrained(zh_en_mode_name)
-    zh_en_translation = pipeline("translation_zh_to_en", model=zh_en_model, tokenizer=zh_en_tokenizer)
-    return en_zh_translation, zh_en_translation, agent
+    return agent
 
 
-en_zh_translation, zh_en_translation, agent = load_sticker_agent()
+agent = load_sticker_agent()
 
 
 # # *******************************call the openqa interface*******************************
@@ -71,9 +65,6 @@ def reset_dialogue():
     st.session_state["user_input"] = ""
 
 
-user_input = st.text_input("Talk to CogAgent!", key='user_input')
-
-btn = st.button("Restart Dialogue", key='reset', on_click=reset_dialogue)
 
 if 'generated' not in st.session_state:
     st.session_state['generated'] = []
@@ -88,24 +79,22 @@ if 'user_input_history' not in st.session_state:
 if 'user_input' not in st.session_state:
     st.session_state["user_input"] = ""
 
-
 if st.session_state["user_input"]:
     output = st.session_state["user_input"]
-    translated_user_input = en_zh_translation(st.session_state["user_input"], max_length=400)[0]["translation_text"]
 
     sentence, image, st.session_state['past'], st.session_state['past_token'] = agent.infer_one(
-        user_sentence=translated_user_input,
+        user_sentence=st.session_state["user_input"],
         dialogue_history=st.session_state['past'],
         dialogue_history_token=st.session_state['past_token'])
-    print(translated_user_input,sentence)
-    st.session_state["generated"].append(zh_en_translation(sentence, max_length=400)[0]["translation_text"])
+    st.session_state["generated"].append(sentence)
     st.session_state["image"].append(image)
     st.session_state["user_input_history"].append(output)
 if st.session_state['generated']:
-    for i in range(len(st.session_state['generated']) - 1, -1, -1):
-        st.image(st.session_state["image"][i], width=150)
-        message(st.session_state["generated"][i], key=str(i))
+    for i in range(0,len(st.session_state['generated'])):
         message(st.session_state['user_input_history'][i], is_user=True, key=str(i) + '_user')
+        message(st.session_state["generated"][i], key=str(i))
+        st.image(st.session_state["image"][i],width=150)
 
+user_input = st.text_input("Talk to CogAgent!", key='user_input')
 
-
+btn = st.button("Restart Dialogue", key='reset', on_click=reset_dialogue)
