@@ -12,7 +12,7 @@ from cogagent.data.readers.kemp_reader import KempReader
 from cogagent.data.processors.kemp_processors.kemp_processor import KempProcessor
 from cogagent.models.base_kemp_model import KempModel
 from cogagent.models.kemp_common_layer import NoamOpt, LabelSmoothing
-from cogagent.core.metric.base_kemp_metric import BaseKempMetric
+# from cogagent.core.metric.base_kemp_metric import BaseKempMetric
 from cogagent.core import *
 from cogagent.models import *
 from cogagent.toolkits import *
@@ -23,7 +23,7 @@ from cogagent.utils import *
 device, output_path = init_cogagent(
     # device_id=7,
     device_id=6,
-    output_path="/data/zhaojingxuan/zjxcode/CogAgent/datapath/kemp/experimental_result",
+    output_path="/data/hongbang/CogAGENT/datapath/kemp/experimental_result",
     folder_tag="simple_test",
 )
 
@@ -133,7 +133,7 @@ program_number = 32
 # program_number = len(train_dataset.emo_map)
 
 model = KempModel(args, vocab, decoder_number=program_number)
-metric = BaseKempMetric(mode="binary")
+metric = BaseClassificationMetric(mode="binary")
 loss = {"nllloss" : nn.NLLLoss(ignore_index=args.PAD_idx),
         "crossentropyloss" : nn.CrossEntropyLoss(reduction='sum')}
 # if args.label_smoothing:
