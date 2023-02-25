@@ -2,6 +2,7 @@ import streamlit as st
 from cogagent.utils.log_utils import logger
 from cogagent.toolkits.dia_safety_toolkit import DialogeSafetyDetectionToolkit
 import torch
+from cogagent.utils.io_utils import load_file_path_yaml
 
 # # *******************************Construct Web Pages*******************************
 
@@ -36,14 +37,14 @@ submit = st.button('SUBMIT')
 
 
 # # *******************************Loading OpenQA Agent*******************************
-
+config = load_file_path_yaml("./config.yaml")
 @st.cache_resource
 def load_dia_safety_detection_toolkit():
     logger.info("Loading open dialogue safety detection toolkit...")
     toolkit = DialogeSafetyDetectionToolkit(
         plm_name='roberta-base',
-        classifier_path='/data/hongbang/CogAGENT/datapath/dialogue_safety/DiaSafety/raw_data/classifiers',
         device=torch.device("cuda:1"),
+        **config["dialogue_safety"]
     )
     logger.info("Loading Finished.")
     return toolkit

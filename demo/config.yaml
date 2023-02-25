@@ -7,4 +7,6 @@ openqa:
   wiki_passages: openqa/wiki_passages/psgs_w100.tsv
 
 
+dialogue_safety:
+  classifier_path: dialogue_safety/classifiers/
 

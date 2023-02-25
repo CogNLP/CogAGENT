@@ -79,4 +79,8 @@ def load_file_path_yaml(file_path):
             path = os.path.join(config["rootpath"], value)
             if os.path.exists(path):
                 config["openqa"][key] = path
+        for key, value in config["dialogue_safety"].items():
+            path = os.path.join(config["rootpath"], value)
+            if os.path.exists(path):
+                config["dialogue_safety"][key] = path
     return config
