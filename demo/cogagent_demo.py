@@ -4,7 +4,7 @@ from PIL import Image
 
 st.sidebar.markdown("# Main page 🎈")
 
-image = Image.open('../../docs/log.png')
+image = Image.open('../docs/images/log.png')
 st.image(image)
 
 st.title('A :blue[Multimodal], :green[Knowledgeable] and :orange[Controllable] Toolkit for Building Conversational Agents :robot_face: ')

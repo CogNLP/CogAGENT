@@ -7,7 +7,9 @@ from cogagent.toolkits.dialog_vqa_toolkit import DialogVQAToolkit
 from PIL import Image
 from io import BytesIO
 import torch
-
+from cogagent.utils.io_utils import load_file_path_yaml
+# os.environ["OPENAI_API_KEY"] = <"your_api_key">
+# os.environ['OPENAI_API_KEY']  = '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'
 # # *******************************Construct Web Pages*******************************
 
 st.title('CogAgent')
@@ -25,16 +27,18 @@ st.warning('''
 
 
 # # *******************************Loading Knowledge Grounded Agent*******************************
-
+config = load_file_path_yaml("./config.yaml")
 @st.cache_resource
 def load_vqa_agent():
     agent = DialogVQAToolkit(
         dataset_name="OKVQA",
         model_name="pica",
-        data_path="/data/mentianyi/code/CogNLP/datapath/vqa/okvqa",
-        language="english"
+        # data_path="/data/hongbang/.cogagent/okvqa",
+        language="english",
+        **config["vqa"]
     )
     return agent
+
 
 
 agent = load_vqa_agent()

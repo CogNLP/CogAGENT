@@ -87,4 +87,8 @@ def load_file_path_yaml(file_path):
             path = os.path.join(config["rootpath"], value)
             if os.path.exists(path):
                 config["sticker"][key] = path
+        for key, value in config["vqa"].items():
+            path = os.path.join(config["rootpath"], value)
+            if os.path.exists(path):
+                config["vqa"][key] = path
     return config

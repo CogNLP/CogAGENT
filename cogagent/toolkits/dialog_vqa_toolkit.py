@@ -2,7 +2,7 @@ from cogagent.toolkits.base_toolkit import BaseToolkit
 import json
 import os
 
-os.environ['OPENAI_API_KEY'] = OPENAI_API_KEY = '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'
+os.environ['OPENAI_API_KEY'] = OPENAI_API_KEY = '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'
 import csv
 import numpy as np
 from tqdm import tqdm

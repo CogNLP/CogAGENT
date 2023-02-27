@@ -16,3 +16,6 @@ sticker:
   sticker_model_path: sticker/sticker_model.pt
   id2img_path: sticker/mm_dialog/raw_data/id2img.json
   image_path: sticker/mm_dialog/raw_data/meme_set/
+
+vqa:
+  data_path: okvqa/
