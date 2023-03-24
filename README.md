@@ -135,7 +135,7 @@ trainer.train()
       <td style="border:1px solid black;">owards fully end-to-end task-oriented dialog system with gpt-</td>
       
   </tr>
-  <tr style="border:1px solid black;"> 
+  <tr style="border:1px solid black;">
       <td style="border:1px solid black;">
           GPT2 for Chinese chitchat
       </td>
